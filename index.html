@@ -57,7 +57,7 @@ button{background:none;border:0;cursor:pointer}
 
 /* 共用元件 */
 .hint{font-size:.85rem;letter-spacing:.3em;margin-right:-.3em;color:var(--ink-soft);text-align:center;line-height:1.8;min-height:1.8em}
-.text-btn{font-size:.9rem;letter-spacing:.2em;padding:.6em .3em;border-bottom:1px solid rgba(38,36,31,.35);transition:border-color .5s}
+.text-btn{white-space:nowrap;font-size:.9rem;letter-spacing:.2em;padding:.6em .3em;border-bottom:1px solid rgba(38,36,31,.35);transition:border-color .5s}
 .text-btn:hover{border-color:var(--ink)}
 .primary-btn{background:var(--ink);color:var(--paper);padding:.85em 2.4em;letter-spacing:.3em;font-size:.95rem;border-radius:2px;transition:background .6s}
 .primary-btn:hover{background:#3a372f}
@@ -89,10 +89,25 @@ button{background:none;border:0;cursor:pointer}
 @keyframes fadein{to{opacity:1}}
 
 /* 取景 */
-.viewfinder{position:relative;width:min(88vw,calc(60vh*4/3),860px);aspect-ratio:4/3;background:#1f1d19;border:12px solid var(--wood);
+#capture{gap:.9rem}
+.viewfinder{position:relative;touch-action:none;width:min(88vw,calc(50vh*4/3),860px);aspect-ratio:4/3;background:#1f1d19;border:12px solid var(--wood);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 20px 40px -26px rgba(38,36,31,.8);overflow:hidden}
-@media (orientation:portrait){.viewfinder{width:min(84vw,calc(58vh*3/4));aspect-ratio:3/4}}
-.viewfinder video{width:100%;height:100%;object-fit:cover;display:block}
+@media (orientation:portrait){.viewfinder{width:min(84vw,calc(46vh*3/4));aspect-ratio:3/4}}
+.viewfinder video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;pointer-events:none}
+.viewfinder.nogl video{opacity:1}
+.viewfinder.nogl #live{display:none}
+#live{position:absolute;inset:0;width:100%;height:100%;display:block;transition:opacity .25s}
+#live.switching{opacity:.2}
+.style-flash{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--title);font-size:clamp(1.6rem,5vw,2.4rem);letter-spacing:.4em;color:#fffaf0;text-shadow:0 1px 14px rgba(0,0,0,.5);opacity:0;pointer-events:none}
+.style-flash.show{animation:sflash 1.5s var(--ease)}
+@keyframes sflash{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+.modes{display:flex;gap:1.8rem}
+.modes button{font-size:.95rem;letter-spacing:.25em;padding:.3em .1em;color:var(--ink-soft);border-bottom:1px solid transparent;transition:color .5s,border-color .5s}
+.modes button[aria-checked="true"]{color:var(--ink);border-color:var(--ink)}
+.sliders{display:flex;gap:.5rem 1.8rem;flex-wrap:wrap;justify-content:center;width:min(88vw,620px)}
+.slider{display:flex;align-items:center;gap:.6rem;font-size:.8rem;letter-spacing:.15em;color:var(--ink-soft);flex:1;min-width:230px}
+.slider input{flex:1;accent-color:var(--ink)}
+.slider output{min-width:3em;text-align:right}
 .viewfinder video.mirror{transform:scaleX(-1)}
 .vf-message{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:1.5rem;color:var(--paper);font-size:.95rem;line-height:2;letter-spacing:.12em}
 .flash{position:absolute;inset:0;background:#fffaf0;opacity:0;pointer-events:none}
@@ -109,6 +124,7 @@ button{background:none;border:0;cursor:pointer}
 .preview{border:8px solid var(--wood);background:#1f1d19;justify-self:center;line-height:0;max-width:100%}
 .preview canvas{max-width:100%;max-height:56vh;width:auto;height:auto}
 @media (max-width:760px){.preview canvas{max-height:30vh}}
+@media (max-width:420px){.capture-controls .text-btn{font-size:.8rem;letter-spacing:.12em}}
 fieldset{border:0;margin-bottom:1.3rem}
 legend{font-size:.85rem;letter-spacing:.4em;color:var(--ink-soft);margin-bottom:.7rem}
 .chips{display:flex;flex-wrap:wrap;gap:.5rem}
@@ -211,10 +227,20 @@ body[data-screen="gallery"] #soundBtn{color:var(--paper)}
   <button class="corner-btn" data-go="opening">返回</button>
   <div class="viewfinder" id="viewfinder">
     <video id="video" playsinline muted></video>
+    <canvas id="live" role="img" aria-label="即時畫風預覽"></canvas>
+    <div class="style-flash" id="styleFlash" aria-live="polite"></div>
     <div class="vf-message" id="vfMessage" hidden></div>
     <div class="flash" id="flash"></div>
   </div>
-  <p class="hint">對準想留下的此刻</p>
+  <div class="modes" role="radiogroup" aria-label="畫風">
+    <button role="radio" data-style="watercolor" aria-checked="true">水彩</button>
+    <button role="radio" data-style="ink" aria-checked="false">水墨</button>
+    <button role="radio" data-style="ukiyoe" aria-checked="false">浮世繪</button>
+  </div>
+  <div class="sliders">
+    <label class="slider"><span>縮放</span><input type="range" id="zoomRange" min="1" max="4" step="0.1" value="1" aria-label="縮放"><output id="zoomOut">1.0×</output></label>
+    <label class="slider"><span>寫實</span><input type="range" id="absRange" min="0" max="100" step="1" value="35" aria-label="抽象程度"><span>抽象</span></label>
+  </div>
   <div class="capture-controls">
     <button class="text-btn left" id="pickBtn">從相簿選一張</button>
     <button class="enso small" id="shutterBtn" aria-label="拍照">
@@ -238,9 +264,8 @@ body[data-screen="gallery"] #soundBtn{color:var(--paper)}
         <legend>畫風</legend>
         <div class="chips">
           <label class="chip"><input type="radio" name="style" value="watercolor" checked><span>水彩</span></label>
-          <label class="chip"><input type="radio" name="style" value="collage"><span>碎紙拼接</span></label>
-          <label class="chip"><input type="radio" name="style" value="kintsugi"><span>碎瓷金繼</span></label>
-          <label class="chip"><input type="radio" name="style" value="wax"><span>融蠟流淌</span></label>
+          <label class="chip"><input type="radio" name="style" value="ink"><span>水墨</span></label>
+          <label class="chip"><input type="radio" name="style" value="ukiyoe"><span>浮世繪</span></label>
         </div>
       </fieldset>
       <fieldset>
@@ -295,7 +320,8 @@ body[data-screen="gallery"] #soundBtn{color:var(--paper)}
 /* ---------- 基本設定 ---------- */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-const STYLES = { watercolor: '水彩', collage: '碎紙拼接', kintsugi: '碎瓷金繼', wax: '融蠟流淌' };
+const STYLES = { watercolor: '水彩', ink: '水墨', ukiyoe: '浮世繪', collage: '碎紙拼接', kintsugi: '碎瓷金繼', wax: '融蠟流淌' };
+const LIVE_STYLES = ['watercolor', 'ink', 'ukiyoe'];
 const MATERIALS = { washi: '和紙', stone: '石頭', wood: '木板', water: '水面' };
 const MAX_WORKS = 20;
 const REVEAL_MS = 10000;
@@ -368,28 +394,6 @@ function channels(px, n) {
   return [R, G, B];
 }
 
-/* Voronoi（碎紙、碎瓷用） */
-let NI = 0, ND1 = 0, ND2 = 0;
-function voronoi(w, h, cell, rnd) {
-  const gw = Math.ceil(w / cell) + 2, gh = Math.ceil(h / cell) + 2, pts = [];
-  for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++)
-    pts.push({ x: (gx - 1 + rnd()) * cell, y: (gy - 1 + rnd()) * cell });
-  return { gw, gh, pts, cell };
-}
-function nearest2(V, x, y) {
-  const gx = Math.floor(x / V.cell) + 1, gy = Math.floor(y / V.cell) + 1;
-  let d1 = 1e9, d2 = 1e9, i1 = 0;
-  for (let j = gy - 1; j <= gy + 1; j++) {
-    if (j < 0 || j >= V.gh) continue;
-    for (let i = gx - 1; i <= gx + 1; i++) {
-      if (i < 0 || i >= V.gw) continue;
-      const k = j * V.gw + i, p = V.pts[k], d = Math.hypot(x - p.x, y - p.y);
-      if (d < d1) { d2 = d1; d1 = d; i1 = k; } else if (d < d2) d2 = d;
-    }
-  }
-  NI = i1; ND1 = d1; ND2 = d2;
-}
-
 /* ---------- 畫風 ---------- */
 function styleWatercolor(px, w, h, seed) {
   const nz = makeNoise(seed), n = w * h, s = Math.max(w, h) / 800;
@@ -424,113 +428,144 @@ function styleWatercolor(px, w, h, seed) {
   return out;
 }
 
-function styleCollage(px, w, h, seed) {
-  const rnd = mulberry32(seed), nz = makeNoise(seed + 5), n = w * h;
-  const cell = Math.max(w, h) / 6, V = voronoi(w, h, cell, rnd);
-  for (const p of V.pts) {
-    const a = (rnd() - .5) * .09;
-    p.cs = Math.cos(a); p.sn = Math.sin(a);
-    p.ox = (rnd() - .5) * cell * .08; p.oy = (rnd() - .5) * cell * .08; p.b = .93 + rnd() * .12;
-  }
-  const gap = cell * .016, fib = cell * .022, jag = cell * .2;
-  const out = new Uint8ClampedArray(n * 4);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const o = (y * w + x) * 4;
-    const qx = x + (nz.fbm(x * .018, y * .018, 3) - .5) * jag + (nz(x * .2, y * .2) - .5) * cell * .02;
-    const qy = y + (nz.fbm(x * .018 + 50, y * .018 + 50, 3) - .5) * jag + (nz(x * .2 + 7, y * .2 + 7) - .5) * cell * .02;
-    nearest2(V, qx, qy);
-    const p = V.pts[NI];
-    let edge = (ND2 - ND1) / 2;
-    const bEdge = Math.min(x, y, w - 1 - x, h - 1 - y) - cell * .03 + (nz.fbm(x * .05 + 9, y * .05 + 3, 3) - .5) * cell * .12;
-    edge = Math.min(edge, bEdge);
-    if (edge < gap) { out[o + 3] = 255 * .28 * clamp(edge / gap, 0, 1); continue; }
-    if (edge < gap + fib) {
-      const f = .94 + .08 * nz(x * .9, y * .9);
-      out[o] = 243 * f; out[o + 1] = 239 * f; out[o + 2] = 229 * f; out[o + 3] = 255; continue;
-    }
-    const dx = x - p.x, dy = y - p.y;
-    const sx = clamp(Math.round(p.x + dx * p.cs - dy * p.sn + p.ox), 0, w - 1);
-    const sy = clamp(Math.round(p.y + dx * p.sn + dy * p.cs + p.oy), 0, h - 1);
-    const j = (sy * w + sx) * 4;
-    let r = px[j] / 255, g = px[j + 1] / 255, b = px[j + 2] / 255;
-    const L = .299 * r + .587 * g + .114 * b;
-    r = mix(r, L, .12); g = mix(g, L, .12); b = mix(b, L, .12);
-    const k = p.b * (.95 + .07 * nz(x * .7, y * .7)) * (1 - .12 * (1 - smooth(gap + fib, gap + fib + cell * .08, edge)));
-    out[o] = r * k * 255; out[o + 1] = g * k * 255; out[o + 2] = b * k * 255; out[o + 3] = 255;
-  }
-  return out;
-}
 
-function styleKintsugi(px, w, h, seed) {
-  const rnd = mulberry32(seed), nz = makeNoise(seed + 7), n = w * h;
-  const cell = Math.max(w, h) / 5.2, V = voronoi(w, h, cell, rnd);
-  for (const p of V.pts) {
-    p.ox = (rnd() - .5) * cell * .024; p.oy = (rnd() - .5) * cell * .024;
-    p.hx = p.x - cell * .25; p.hy = p.y - cell * .3; p.t = .97 + rnd() * .06;
-  }
-  const seam = Math.max(1.3, Math.max(w, h) / 420);
-  const [R0, G0, B0] = channels(px, n);
-  const R = blur(R0, w, h, 1), G = blur(G0, w, h, 1), B = blur(B0, w, h, 1);
-  const out = new Uint8ClampedArray(n * 4);
-  const gold = (x, y, t, o) => {
-    const k = clamp(.25 + nz(x * .08, y * .08) * .9 - t * .3, 0, 1);
-    out[o] = mix(139, 238, k); out[o + 1] = mix(101, 209, k); out[o + 2] = mix(36, 128, k); out[o + 3] = 255;
+/* ---------- 即時畫風（WebGL，取景與成畫共用同一套運算） ---------- */
+const VS = 'attribute vec2 a;varying vec2 v_uv;void main(){v_uv=a*.5+.5;gl_Position=vec4(a,0.,1.);}';
+const FS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 v_uv;
+uniform sampler2D u_img;
+uniform vec2 u_res, u_scale;
+uniform float u_flip, u_style, u_abs, u_preview, u_seed;
+vec2 PX;
+float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+  return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}
+float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*vnoise(p);p*=2.03;a*=.5;}return s/.9375;}
+float lum(vec3 c){return dot(c,vec3(.299,.587,.114));}
+vec3 tex(vec2 uv){uv=(uv-.5)*u_scale+.5;if(u_flip>.5)uv.x=1.-uv.x;return texture2D(u_img,clamp(uv,.001,.999)).rgb;}
+vec3 blur9(vec2 uv,float R){vec3 s=vec3(0.);
+  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++)s+=tex(uv+vec2(float(i),float(j))*R*PX);return s/9.;}
+float sobel(vec2 uv,float r){vec2 o=PX*r;
+  float tl=lum(tex(uv+vec2(-o.x,o.y))),t=lum(tex(uv+vec2(0.,o.y))),tr=lum(tex(uv+o));
+  float l=lum(tex(uv-vec2(o.x,0.))),rr=lum(tex(uv+vec2(o.x,0.)));
+  float bl=lum(tex(uv-o)),b=lum(tex(uv-vec2(0.,o.y))),br=lum(tex(uv+vec2(o.x,-o.y)));
+  float gx=tr+2.*rr+br-tl-2.*l-bl,gy=tl+2.*t+tr-bl-2.*b-br;return length(vec2(gx,gy));}
+vec3 kuwa(vec2 uv,float R){
+  vec3 m0=vec3(0.),m1=vec3(0.),m2=vec3(0.),m3=vec3(0.),s0=vec3(0.),s1=vec3(0.),s2=vec3(0.),s3=vec3(0.),c;
+  for(int j=0;j<4;j++)for(int i=0;i<4;i++){
+    vec2 o=vec2(float(i),float(j))*(R/3.)*PX;
+    c=tex(uv-o);m0+=c;s0+=c*c;
+    c=tex(uv+vec2(o.x,-o.y));m1+=c;s1+=c*c;
+    c=tex(uv+vec2(-o.x,o.y));m2+=c;s2+=c*c;
+    c=tex(uv+o);m3+=c;s3+=c*c;}
+  m0/=16.;m1/=16.;m2/=16.;m3/=16.;
+  float v0=dot(s0/16.-m0*m0,vec3(1.)),v1=dot(s1/16.-m1*m1,vec3(1.)),v2=dot(s2/16.-m2*m2,vec3(1.)),v3=dot(s3/16.-m3*m3,vec3(1.));
+  vec3 r=m0;float v=v0;
+  if(v1<v){v=v1;r=m1;} if(v2<v){v=v2;r=m2;} if(v3<v){v=v3;r=m3;}
+  return r;}
+vec2 VP(){return v_uv*u_res/(max(u_res.x,u_res.y)/700.);}
+vec3 watercolor(){
+  vec2 vp=VP();
+  vec2 w=(vec2(fbm(vp*.012+u_seed),fbm(vp*.012+u_seed+7.3))-.5)*14.*PX*(.6+u_abs);
+  float R=mix(2.5,9.,u_abs);
+  vec3 c=kuwa(v_uv+w,R),big=blur9(v_uv+w,R*3.);
+  float e=clamp(abs(lum(c)-lum(big))*3.5,0.,1.);
+  float lv=mix(9.,4.,u_abs);
+  c=mix(c,floor(c*lv+.5)/lv,.45);
+  float dens=(.8+e*1.1)*(.92+.16*vnoise(vp*.45));
+  c=1.-(1.-c)*dens;
+  c=mix(c,vec3(1.),smoothstep(.78,.95,lum(c))*.8);
+  return clamp(c,0.,1.);}
+vec3 ink(){
+  vec2 vp=VP();
+  vec2 w=(vec2(fbm(vp*.015+u_seed),fbm(vp*.015+u_seed+4.1))-.5)*8.*PX;
+  float R=mix(1.5,5.,u_abs);
+  float d=smoothstep(.15,.85,1.-lum(blur9(v_uv+w,R)));
+  float lv=mix(6.,3.,u_abs);
+  d=floor(d*lv+vnoise(vp*.05)*.6)/lv;
+  float d2=smoothstep(.15,.85,1.-lum(blur9(v_uv+w,R*4.)));
+  d=mix(d,d2,.35);
+  float g=sobel(v_uv+w,mix(1.2,2.5,u_abs));
+  float line=smoothstep(mix(.12,.3,u_abs),mix(.3,.55,u_abs),g)*(.7+.3*vnoise(vp*.3));
+  float k=clamp(d*.75+line*.9,0.,1.)*(.9+.2*vnoise(vp*.6));
+  return clamp(vec3(1.)-k*vec3(.9,.91,.93),0.,1.);}
+vec3 ukiyoe(){
+  vec2 vp=VP();
+  float R=mix(2.,7.,u_abs);
+  vec3 c=kuwa(v_uv,R);
+  float lv=mix(6.,3.,u_abs);
+  c=floor(c*lv+.5)/lv;
+  c=mix(c,vec3(lum(c)),.15)*vec3(1.03,.99,.9);
+  float g=sobel(v_uv+PX*vec2(1.5,-1.),1.5);
+  float line=smoothstep(mix(.15,.28,u_abs),mix(.3,.5,u_abs),g);
+  c=mix(c,vec3(.13,.13,.18),line*.9);
+  c*=.94+.06*vnoise(vec2(vp.x*.02,vp.y*.8));
+  c+=(vnoise(vp*1.3)-.5)*.03;
+  return clamp(c,0.,1.);}
+void main(){
+  PX=vec2(1./u_res.x,1./u_res.y)*(max(u_res.x,u_res.y)/700.);
+  vec3 col=u_style<.5?watercolor():u_style<1.5?ink():ukiyoe();
+  if(u_preview>.5&&u_style<1.5){vec2 vp=VP();col*=vec3(.95,.93,.88)*(.97+.05*vnoise(vp*.5));}
+  gl_FragColor=vec4(col,1.);}`;
+
+function createRenderer(canvas, preserve) {
+  const gl = canvas.getContext('webgl', { preserveDrawingBuffer: !!preserve, antialias: false, premultipliedAlpha: false });
+  if (!gl) return null;
+  const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x);
+    if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(x)); return null; } return x; };
+  const vs = sh(gl.VERTEX_SHADER, VS), fs = sh(gl.FRAGMENT_SHADER, FS);
+  if (!vs || !fs) return null;
+  const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+  gl.useProgram(pr);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  const U = {}; ['u_res', 'u_scale', 'u_flip', 'u_style', 'u_abs', 'u_preview', 'u_seed'].forEach(n => U[n] = gl.getUniformLocation(pr, n));
+  return {
+    upload(src) { gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); },
+    draw(o) {
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform2f(U.u_res, canvas.width, canvas.height);
+      gl.uniform2f(U.u_scale, o.scale[0], o.scale[1]);
+      gl.uniform1f(U.u_flip, o.flip ? 1 : 0);
+      gl.uniform1f(U.u_style, LIVE_STYLES.indexOf(o.style));
+      gl.uniform1f(U.u_abs, o.abs);
+      gl.uniform1f(U.u_preview, o.preview ? 1 : 0);
+      gl.uniform1f(U.u_seed, o.seed || 3.7);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
   };
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const o = (y * w + x) * 4;
-    const bEdge = Math.min(x, y, w - 1 - x, h - 1 - y) - cell * .02 + (nz(x * .05, y * .05) - .5) * cell * .05;
-    if (bEdge < 0) { out[o + 3] = 0; continue; }
-    if (bEdge < seam * 1.2) { gold(x, y, bEdge / seam, o); continue; }
-    nearest2(V, x + (nz(x * .06, y * .06) - .5) * cell * .04, y + (nz(x * .06 + 20, y * .06 + 20) - .5) * cell * .04);
-    const p = V.pts[NI], edge = (ND2 - ND1) / 2;
-    if (edge < seam) { gold(x, y, edge / seam, o); continue; }
-    const sx = clamp(Math.round(x + p.ox), 0, w - 1), sy = clamp(Math.round(y + p.oy), 0, h - 1), j = sy * w + sx;
-    const dd = Math.hypot(x - p.hx, y - p.hy) / (cell * .85);
-    const spec = Math.pow(Math.max(0, 1 - dd), 3) * .16;
-    const bev = (1 - smooth(seam, seam * 4, edge)) * .08;
-    const f = c => clamp(((c - .5) * 1.06 + .5) * p.t + spec - bev, 0, 1) * 255;
-    out[o] = f(R[j]); out[o + 1] = f(G[j]); out[o + 2] = f(B[j]); out[o + 3] = 255;
-  }
-  return out;
 }
+const offCanvas = makeCanvas(2, 2);
+const offR = createRenderer(offCanvas, true);
 
-function styleWax(px, w, h, seed) {
-  const nz = makeNoise(seed + 9), n = w * h, s = Math.max(w, h) / 800;
-  const [R, G, B] = channels(px, n);
-  const drip = new Float32Array(w), st = new Float32Array(w);
-  for (let x = 0; x < w; x++) {
-    drip[x] = smooth(.48, .7, nz.fbm(x * .03 / s, 3.7, 3));
-    st[x] = h * (.05 + .6 * nz.fbm(x * .008 / s, 9.1, 2));
+/* 把照片畫成指定畫風（成畫用），沒有 WebGL 時退回水彩 */
+function renderStyle(src, w, h, style, abs, preview) {
+  const c = makeCanvas(w, h), x = readCtx(c);
+  if (offR) {
+    offCanvas.width = w; offCanvas.height = h;
+    offR.upload(src);
+    offR.draw({ style, scale: [1, 1], flip: false, abs, preview });
+    x.drawImage(offCanvas, 0, 0);
+  } else {
+    x.drawImage(src, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h);
+    d.data.set(styleWatercolor(d.data, w, h, 7));
+    for (let i = 3; i < d.data.length; i += 4) d.data[i] = 255;
+    x.putImageData(d, 0, 0);
   }
-  const oR = new Float32Array(n), oG = new Float32Array(n), oB = new Float32Array(n);
-  for (let x = 0; x < w; x++) {
-    let r = R[x], g = G[x], b = B[x];
-    const flow = mix(.92, .022, drip[x]);
-    for (let y = 0; y < h; y++) {
-      const i = y * w + x, k = y < st[x] ? 1 : flow;
-      r += (R[i] - r) * k; g += (G[i] - g) * k; b += (B[i] - b) * k;
-      oR[i] = r; oG[i] = g; oB[i] = b;
-    }
-  }
-  const br = Math.max(1, Math.round(2 * s));
-  const sR = blur(oR, w, h, br), sG = blur(oG, w, h, br), sB = blur(oB, w, h, br);
-  const Lh = new Float32Array(n);
-  for (let i = 0; i < n; i++) Lh[i] = .299 * sR[i] + .587 * sG[i] + .114 * sB[i];
-  const Hm = blur(Lh, w, h, Math.max(2, Math.round(4 * s)));
-  const out = new Uint8ClampedArray(n * 4), o2 = Math.max(1, Math.round(2 * s));
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x, o = i * 4;
-    const xa = Math.max(0, x - o2), xb = Math.min(w - 1, x + o2), ya = Math.max(0, y - o2), yb = Math.min(h - 1, y + o2);
-    const sh = clamp(.5 + (Hm[ya * w + xa] - Hm[yb * w + xb]) * 18, 0, 1);
-    const diff = .88 + (sh - .5) * .45, spec = Math.pow(clamp((sh - .6) / .4, 0, 1), 2) * .55;
-    out[o] = mix(sR[i] * diff + spec, .96, .08) * 255;
-    out[o + 1] = mix(sG[i] * diff + spec, .91, .08) * 255;
-    out[o + 2] = mix(sB[i] * diff + spec, .83, .08) * 255;
-    out[o + 3] = 255;
-  }
-  return out;
+  return c;
 }
-const STYLE_FN = { watercolor: styleWatercolor, collage: styleCollage, kintsugi: styleKintsugi, wax: styleWax };
 
 /* ---------- 材質 ---------- */
 function makeMaterial(type, W, H, seed) {
@@ -585,24 +620,28 @@ function makeMaterial(type, W, H, seed) {
 }
 
 /* ---------- 合成：畫風 × 材質 ---------- */
-function compose(style, material, photo, seed) {
+function compose(style, material, photo, seed, abs) {
   const longArt = innerWidth < 700 ? 640 : 820;
   const k = longArt / Math.max(photo.width, photo.height);
   const aw = Math.round(photo.width * k), ah = Math.round(photo.height * k);
   const m = Math.round(Math.max(aw, ah) * .07), W = aw + 2 * m, H = ah + 2 * m;
-  const ac = makeCanvas(aw, ah), actx = readCtx(ac);
-  actx.drawImage(photo, 0, 0, aw, ah);
-  const art = STYLE_FN[style](actx.getImageData(0, 0, aw, ah).data, aw, ah, seed);
+  const art = readCtx(renderStyle(photo, aw, ah, style, abs, false)).getImageData(0, 0, aw, ah).data;
   const mat = makeMaterial(material, W, H, seed);
   const final = makeCanvas(W, H), fctx = readCtx(final);
   fctx.drawImage(mat, 0, 0);
   const fi = fctx.getImageData(0, 0, W, H), fd = fi.data;
   let sum = 0, cnt = 0;
   for (let i = 0; i < fd.length; i += 16) { sum += fd[i] * .299 + fd[i + 1] * .587 + fd[i + 2] * .114; cnt++; }
-  const avg = sum / cnt, transparent = style === 'watercolor', water = material === 'water';
+  const avg = sum / cnt, transparent = style !== 'ukiyoe', water = material === 'water';
+  const nz = makeNoise(seed + 13), edgeW = Math.max(aw, ah) * .035;
   for (let y = 0; y < ah; y++) for (let x = 0; x < aw; x++) {
-    const o = (y * aw + x) * 4, a = art[o + 3] / 255;
-    if (a <= 0) continue;
+    const o = (y * aw + x) * 4;
+    let a = 1;
+    if (transparent) {
+      const dEdge = Math.min(x, y, aw - 1 - x, ah - 1 - y);
+      a = smooth(0, edgeW, dEdge + (nz.fbm(x * .02, y * .02, 3) - .5) * edgeW * 1.8);
+      if (a <= 0) continue;
+    }
     const f = ((y + m) * W + x + m) * 4;
     const Mr = fd[f], Mg = fd[f + 1], Mb = fd[f + 2];
     let r, g, b;
@@ -668,7 +707,7 @@ function drawSand() {
   c.width = W; c.height = H;
   const x2 = readCtx(c), img = x2.createImageData(W, H), d = img.data;
   const nz = makeNoise(42), rnd = mulberry32(9), u = Math.min(W, H);
-  const sx = W * (W > H ? .74 : .68), sy = H * (W > H ? .7 : .78), sr = u * .075, sp = Math.max(6, u * .016), ringZ = sr * 3.4;
+  const sx = W * (W > H ? .74 : .8), sy = H * (W > H ? .7 : .95), sr = u * .075, sp = Math.max(6, u * .016), ringZ = sr * 3.4;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const o = (y * W + x) * 4, dx = (x - sx) / 1.45, dy = y - sy, dist = Math.hypot(dx, dy);
     const ang = Math.atan2(dy, dx);
@@ -720,7 +759,7 @@ const Sound = {
     const conv = ctx.createConvolver(); conv.buffer = this.impulse(3.2);
     this.wet = ctx.createGain(); this.wet.gain.value = .5;
     this.wet.connect(conv); conv.connect(this.master);
-    this.water(); this.chimeLoop(); this.panLoop();
+    this.chimeLoop(); this.panLoop();
   },
   noise(sec) {
     const ctx = this.ctx, len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
@@ -731,30 +770,6 @@ const Sound = {
     const ctx = this.ctx, len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
     return b;
-  },
-  water() {
-    const ctx = this.ctx, src = ctx.createBufferSource();
-    src.buffer = this.noise(5); src.loop = true;
-    const bus = ctx.createGain(); bus.gain.value = 0; bus.gain.setTargetAtTime(.55, ctx.currentTime, 2.5);
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90;
-    bus.connect(hp); hp.connect(this.master);
-    const send = ctx.createGain(); send.gain.value = .25; hp.connect(send); send.connect(this.wet);
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
-    const lg = ctx.createGain(); lg.gain.value = .35;
-    src.connect(lp); lp.connect(lg); lg.connect(bus);
-    for (let i = 0; i < 4; i++) {
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = rand(5, 12); bp.frequency.value = rand(500, 1400);
-      const g = ctx.createGain(); g.gain.value = .3;
-      src.connect(bp); bp.connect(g); g.connect(bus);
-      const step = () => {
-        const now = ctx.currentTime;
-        bp.frequency.setTargetAtTime(rand(380, 1700), now, rand(.02, .06));
-        g.gain.setTargetAtTime(rand(.1, .6), now, .05);
-        setTimeout(step, rand(50, 160));
-      };
-      step();
-    }
-    src.start();
   },
   route(node, dry, wet) {
     const g1 = this.ctx.createGain(); g1.gain.value = dry; node.connect(g1); g1.connect(this.master);
@@ -875,12 +890,32 @@ function go(id) {
 $$('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 
 /* ---------- 取景 ---------- */
-const video = $('#video');
-let stream = null, facing = 'environment', photo = null;
+const video = $('#video'), live = $('#live'), vf = $('#viewfinder');
+const liveR = createRenderer(live, false);
+if (!liveR) vf.classList.add('nogl');
+let stream = null, facing = 'environment', photo = null, liveRaf = 0;
+const cam = { style: 'watercolor', abs: .35, zoom: 1 };
 
 function camMessage(text) { const m = $('#vfMessage'); m.innerHTML = text; m.hidden = !text; }
+function coverScale() {
+  const vw = video.videoWidth || 4, vh = video.videoHeight || 3, va = vw / vh, ca = vf.clientWidth / vf.clientHeight;
+  return va > ca ? [ca / va, 1] : [1, va / ca];
+}
+function liveLoop() {
+  liveRaf = requestAnimationFrame(liveLoop);
+  if (!liveR || !stream || video.readyState < 2) return;
+  const dpr = Math.min(devicePixelRatio || 1, 1.5), cap = innerWidth < 700 ? 560 : 760;
+  let w = vf.clientWidth * dpr, h = vf.clientHeight * dpr;
+  const k = Math.min(1, cap / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+  if (live.width !== w || live.height !== h) { live.width = w; live.height = h; }
+  const [sx, sy] = coverScale();
+  liveR.upload(video);
+  liveR.draw({ style: cam.style, abs: cam.abs, scale: [sx / cam.zoom, sy / cam.zoom], flip: facing === 'user', preview: true });
+}
 async function startCamera() {
   camMessage('');
+  cancelAnimationFrame(liveRaf); liveRaf = requestAnimationFrame(liveLoop);
+  showStyleName();
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     camMessage('這個瀏覽器無法開啟相機<br>可以改從相簿選一張照片'); return;
   }
@@ -890,6 +925,7 @@ async function startCamera() {
     video.srcObject = stream;
     await video.play();
     video.classList.toggle('mirror', facing === 'user');
+    setZoom(cam.zoom);
     const devs = await navigator.mediaDevices.enumerateDevices();
     $('#flipBtn').hidden = devs.filter(d => d.kind === 'videoinput').length < 2;
   } catch (e) {
@@ -897,20 +933,72 @@ async function startCamera() {
   }
 }
 function stopCamera() {
+  cancelAnimationFrame(liveRaf);
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null; video.srcObject = null;
 }
 function captureFrame() {
-  const vw = video.videoWidth, vh = video.videoHeight, box = $('#viewfinder').getBoundingClientRect();
-  const A = box.width / box.height;
-  let sw = vw, sh = vh;
-  if (vw / vh > A) sw = vh * A; else sh = vw / A;
+  const vw = video.videoWidth, vh = video.videoHeight, [fx, fy] = coverScale();
+  const sw = vw * fx / cam.zoom, sh = vh * fy / cam.zoom;
   const k = Math.min(1, 1000 / Math.max(sw, sh));
   const c = makeCanvas(Math.round(sw * k), Math.round(sh * k)), x2 = c.getContext('2d');
   if (facing === 'user') { x2.translate(c.width, 0); x2.scale(-1, 1); }
   x2.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, c.width, c.height);
   return c;
 }
+
+/* 畫風切換、縮放、抽象程度 */
+function showStyleName() {
+  const f = $('#styleFlash'); f.textContent = STYLES[cam.style];
+  f.classList.remove('show'); void f.offsetWidth; f.classList.add('show');
+}
+function setStyle(st, flash) {
+  cam.style = st;
+  $$('.modes button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.style === st)));
+  const r = $(`#choices input[name="style"][value="${st}"]`); if (r) r.checked = true;
+  if (flash) { live.classList.add('switching'); setTimeout(() => live.classList.remove('switching'), 220); showStyleName(); }
+}
+function shiftStyle(d) { const i = LIVE_STYLES.indexOf(cam.style); setStyle(LIVE_STYLES[(i + d + LIVE_STYLES.length) % LIVE_STYLES.length], true); }
+$$('.modes button').forEach(b => b.addEventListener('click', () => setStyle(b.dataset.style, true)));
+function setZoom(z) {
+  cam.zoom = clamp(Math.round(z * 10) / 10, 1, 4);
+  $('#zoomRange').value = cam.zoom;
+  $('#zoomOut').textContent = cam.zoom.toFixed(1) + '×';
+  if (!liveR) video.style.transform = `scale(${cam.zoom})` + (facing === 'user' ? ' scaleX(-1)' : '');
+}
+$('#zoomRange').addEventListener('input', e => setZoom(Number(e.target.value)));
+$('#absRange').addEventListener('input', e => { cam.abs = Number(e.target.value) / 100; });
+
+const pts = new Map();
+let pinch = null, swipe = null;
+vf.addEventListener('pointerdown', e => {
+  vf.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y), z0: cam.zoom }; swipe = null; }
+  else if (pts.size === 1) swipe = { x: e.clientX, y: e.clientY, t: performance.now() };
+});
+vf.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && pts.size >= 2) { const [a, b] = [...pts.values()]; setZoom(pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / Math.max(1, pinch.d0)); }
+});
+vf.addEventListener('pointerup', e => {
+  if (swipe && !pinch && pts.size === 1) {
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - swipe.t < 800) shiftStyle(dx < 0 ? 1 : -1);
+  }
+  pts.delete(e.pointerId);
+  if (pts.size < 2) pinch = null;
+  if (pts.size === 0) swipe = null;
+});
+vf.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch = null; swipe = null; });
+vf.addEventListener('wheel', e => { e.preventDefault(); setZoom(cam.zoom * (1 - e.deltaY * .0015)); }, { passive: false });
+document.addEventListener('keydown', e => {
+  if (current !== 'capture' || (e.target && e.target.type === 'range')) return;
+  if (e.key === 'ArrowRight') shiftStyle(1);
+  if (e.key === 'ArrowLeft') shiftStyle(-1);
+});
+
 $('#shutterBtn').addEventListener('click', () => {
   if (!stream || video.readyState < 2) { $('#fileInput').click(); return; }
   Sound.shutter(); vibrate(25);
@@ -937,12 +1025,19 @@ $('#fileInput').addEventListener('change', async e => {
     camMessage('這張照片無法讀取<br>請換一張試試');
   }
 });
-function setPhoto(c) {
-  photo = c;
-  const p = $('#previewCanvas');
-  p.width = c.width; p.height = c.height;
-  p.getContext('2d').drawImage(c, 0, 0);
+
+/* 作畫台預覽：顯示套用畫風後的樣子 */
+function setPhoto(c) { photo = c; renderPreview(); }
+function renderPreview() {
+  if (!photo) return;
+  const k = Math.min(1, 720 / Math.max(photo.width, photo.height));
+  const w = Math.round(photo.width * k), h = Math.round(photo.height * k);
+  const styled = renderStyle(photo, w, h, cam.style, cam.abs, true);
+  const p = $('#previewCanvas'); p.width = w; p.height = h;
+  p.getContext('2d').drawImage(styled, 0, 0);
+  p.setAttribute('aria-label', `套用${STYLES[cam.style]}後的照片`);
 }
+$$('#choices input[name="style"]').forEach(r => r.addEventListener('change', () => { setStyle(r.value, false); renderPreview(); }));
 
 /* ---------- 浮現 ---------- */
 let reveal = null, current_meta = null;
@@ -963,7 +1058,7 @@ $('#paintBtn').addEventListener('click', async () => {
   cv.style.visibility = 'hidden';
   await wait(650); await nextFrame();
   const seed = (Date.now() & 0xffff) + 1;
-  const result = compose(style, material, photo, seed);
+  const result = compose(style, material, photo, seed, cam.abs);
   current_meta = { style, material, palette: extractPalette(photo) };
   cv.style.visibility = '';
   startReveal(result, mode);
