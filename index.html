@@ -197,6 +197,13 @@ legend{font-size:.85rem;letter-spacing:.4em;color:var(--ink-soft);margin-bottom:
 .tray img{height:100%;width:auto;display:block}
 .collage-bar{width:min(96vw,1100px);display:flex;justify-content:space-between;align-items:center}
 
+/* 手機儲存備案 */
+.save-sheet{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;padding:1.5rem;background:rgba(30,28,24,.92);color:var(--paper);text-align:center;letter-spacing:.15em;font-size:.9rem;line-height:1.8}
+.save-sheet img{max-width:92vw;max-height:68vh;box-shadow:0 20px 40px -20px rgba(0,0,0,.8);-webkit-touch-callout:default;user-select:auto}
+.save-sheet .text-btn{border-color:rgba(238,233,222,.4)}
+.toast{position:fixed;left:50%;bottom:max(1.5rem,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;background:rgba(38,36,31,.9);color:var(--paper);padding:.7em 1.3em;border-radius:2px;font-size:.85rem;letter-spacing:.12em;opacity:0;transition:opacity .5s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
 /* 聲音開關 */
 #soundBtn{position:fixed;z-index:20;top:max(.8rem,env(safe-area-inset-top));right:.8rem;width:44px;height:44px;display:grid;place-items:center;color:var(--ink);opacity:.75;transition:color 1s,opacity .4s}
 #soundBtn:hover{opacity:1}
@@ -366,6 +373,12 @@ body[data-screen="gallery"] #soundBtn{color:var(--paper)}
     <button class="primary-btn" id="saveCollage">完成拼貼</button>
   </div>
 </section>
+
+<div class="save-sheet" id="saveSheet" hidden role="dialog" aria-modal="true" aria-label="儲存作品">
+  <img id="saveImg" alt="要儲存的作品">
+  <p>長按圖片，選擇「儲存到照片」或「下載圖片」</p>
+  <button class="text-btn" id="saveClose" type="button">關閉</button>
+</div>
 
 <script>
 (() => {
@@ -1286,11 +1299,37 @@ async function saveFinal(res) {
 }
 function workSrc(w) { return w.src || URL.createObjectURL(new Blob([w.data], { type: 'image/jpeg' })); }
 function loadImage(url) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; }); }
-function download(src, id) {
+function dataURLtoBlob(src) {
+  const [head, body] = src.split(','), bin = atob(body), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: (head.match(/:(.*?);/) || [])[1] || 'image/jpeg' });
+}
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches;
+function toast(text) {
+  let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = text; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function showSaveSheet(src) { $('#saveImg').src = src; $('#saveSheet').hidden = false; $('#saveClose').focus(); }
+$('#saveClose').addEventListener('click', () => { $('#saveSheet').hidden = true; });
+/* 依裝置選擇儲存方式：iPhone 用分享選單，其他裝置直接下載，都不行時顯示圖片讓人長按儲存 */
+function download(src, id, blobIn) {
   const d = new Date(id), pad = n => String(n).padStart(2, '0');
-  const a = document.createElement('a');
-  a.href = src; a.download = `unnoticed-by-time-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.jpg`;
-  document.body.appendChild(a); a.click(); a.remove();
+  const name = `unnoticed-by-time-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.jpg`;
+  let blob = blobIn || null;
+  try { if (!blob && src.startsWith('data:')) blob = dataURLtoBlob(src); } catch (e) {}
+  if (IS_TOUCH && blob && window.File && navigator.canShare) {
+    const file = new File([blob], name, { type: 'image/jpeg' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Unnoticed by Time' }).catch(e => { if (e.name !== 'AbortError') showSaveSheet(src); });
+      return;
+    }
+  }
+  if (IS_IOS || !blob) { showSaveSheet(src); return; }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  if (IS_TOUCH) toast('已開始下載，可在通知列或相簿查看');
 }
 
 /* 落款印章 */
@@ -1369,7 +1408,7 @@ async function makeWorkEl(w) {
   $('time', el).textContent = fmtDate(w.id);
   $('.meta', el).textContent = label;
   $('.palette', el).innerHTML = (w.palette || []).map(h => `<i style="background:${h}" title="${h}"></i>`).join('');
-  $('.dl', el).addEventListener('click', () => download(src, w.id));
+  $('.dl', el).addEventListener('click', () => download(src, w.id, w.data ? new Blob([w.data], { type: 'image/jpeg' }) : null));
   $('.dl', el).setAttribute('aria-label', `下載 ${fmtDate(w.id)} 的${label}`);
   if (w.material === 'water') {
     const s2 = makeCanvas(cv.width, cv.height); s2.getContext('2d').drawImage(cv, 0, 0);
