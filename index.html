@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#DCD6C8">
+<meta name="description" content="一台會畫畫的禪風相機：拍下此刻，讓它慢慢化成一幅畫。">
+<title>Unnoticed by Time</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500&family=Noto+Serif+TC:wght@300;400;500&display=swap">
+<style>
+:root{
+  --sand:#DCD6C8;
+  --paper:#EEE9DE;
+  --ink:#26241F;
+  --ink-soft:#5B574E;
+  --moss:#5F6A49;
+  --wood:#A98A63;
+  --title:"Shippori Mincho","Noto Serif TC",serif;
+  --body:"Noto Serif TC","Shippori Mincho",serif;
+  --ease:cubic-bezier(.33,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--sand);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--moss);outline-offset:4px}
+[hidden]{display:none!important}
+
+/* 背景：沙庭與光斑 */
+#bgCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+.dapple,.shade{position:fixed;pointer-events:none;z-index:1}
+.dapple{inset:-25%;mix-blend-mode:soft-light;filter:blur(10px);
+  background:
+    radial-gradient(ellipse 14% 9% at 22% 28%,rgba(255,244,210,.95),transparent 70%),
+    radial-gradient(ellipse 7% 5% at 31% 36%,rgba(255,244,210,.9),transparent 70%),
+    radial-gradient(ellipse 11% 7% at 18% 44%,rgba(255,244,210,.8),transparent 70%),
+    radial-gradient(ellipse 16% 10% at 64% 22%,rgba(255,244,210,.85),transparent 70%),
+    radial-gradient(ellipse 8% 6% at 72% 31%,rgba(255,244,210,.9),transparent 70%),
+    radial-gradient(ellipse 12% 8% at 55% 58%,rgba(255,244,210,.75),transparent 70%),
+    radial-gradient(ellipse 9% 6% at 40% 70%,rgba(255,244,210,.8),transparent 70%),
+    radial-gradient(ellipse 13% 9% at 80% 66%,rgba(255,244,210,.7),transparent 70%);
+  animation:drift 46s ease-in-out infinite alternate}
+.shade{inset:0;background:radial-gradient(ellipse 90% 80% at 45% 40%,transparent 40%,rgba(38,36,31,.28) 100%)}
+@keyframes drift{
+  0%{transform:translate3d(-4%,-2%,0) rotate(-1.5deg)}
+  50%{transform:translate3d(1%,2%,0) rotate(.5deg)}
+  100%{transform:translate3d(5%,-1%,0) rotate(2deg)}}
+
+/* 畫面切換 */
+.screen{position:fixed;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4rem;
+  padding:max(1.2rem,env(safe-area-inset-top)) 1.2rem max(1.2rem,env(safe-area-inset-bottom));
+  opacity:0;visibility:hidden;transition:opacity 1.1s var(--ease),visibility 0s linear 1.1s}
+.screen.active{opacity:1;visibility:visible;transition:opacity 1.1s var(--ease) .2s,visibility 0s}
+
+/* 共用元件 */
+.hint{font-size:.85rem;letter-spacing:.3em;margin-right:-.3em;color:var(--ink-soft);text-align:center;line-height:1.8;min-height:1.8em}
+.text-btn{font-size:.9rem;letter-spacing:.2em;padding:.6em .3em;border-bottom:1px solid rgba(38,36,31,.35);transition:border-color .5s}
+.text-btn:hover{border-color:var(--ink)}
+.primary-btn{background:var(--ink);color:var(--paper);padding:.85em 2.4em;letter-spacing:.3em;font-size:.95rem;border-radius:2px;transition:background .6s}
+.primary-btn:hover{background:#3a372f}
+.corner-btn{position:absolute;top:max(1rem,env(safe-area-inset-top));left:1rem;font-size:.85rem;letter-spacing:.2em;padding:.6em .8em;color:var(--ink-soft)}
+.corner-btn:hover{color:var(--ink)}
+
+/* 圓相快門 */
+.enso{width:clamp(110px,22vmin,170px);aspect-ratio:1;display:grid;place-items:center;border-radius:50%}
+.enso.small{width:clamp(76px,16vmin,98px)}
+.enso svg{width:100%;height:100%;overflow:visible;transition:transform 1.2s var(--ease)}
+.enso path{fill:none;stroke:var(--ink);stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+.enso .s1{stroke-width:9}
+.enso .s2{stroke-width:3.5;opacity:.5}
+.screen.active .enso path{animation:draw 2.4s var(--ease) .3s forwards}
+#opening.active .enso path{animation-delay:1.8s}
+.enso:hover svg{transform:rotate(-8deg)}
+.enso:active svg{transform:scale(.93)}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* 開場 */
+.opening-content{display:flex;flex-direction:column;align-items:center;gap:1.5rem}
+.title{font-family:var(--title);font-weight:400;font-size:clamp(2.3rem,7.5vw,5.2rem);letter-spacing:.04em;line-height:1.1;text-align:center;opacity:0;filter:blur(10px);transform:translateY(6px)}
+.subtitle{font-size:clamp(.85rem,2.2vw,1.02rem);letter-spacing:.5em;margin:-.4rem -.5em 1rem 0;color:var(--ink-soft);opacity:0}
+#opening .hint,#openGallery{opacity:0}
+#opening.active .title{animation:emerge 4.2s var(--ease) .5s forwards}
+#opening.active .subtitle{animation:fadein 2.4s var(--ease) 3.2s forwards}
+#opening.active .hint,#opening.active #openGallery{animation:fadein 2s var(--ease) 4s forwards}
+@keyframes emerge{to{opacity:1;filter:blur(0);transform:none}}
+@keyframes fadein{to{opacity:1}}
+
+/* 取景 */
+.viewfinder{position:relative;width:min(88vw,calc(60vh*4/3),860px);aspect-ratio:4/3;background:#1f1d19;border:12px solid var(--wood);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 20px 40px -26px rgba(38,36,31,.8);overflow:hidden}
+@media (orientation:portrait){.viewfinder{width:min(84vw,calc(58vh*3/4));aspect-ratio:3/4}}
+.viewfinder video{width:100%;height:100%;object-fit:cover;display:block}
+.viewfinder video.mirror{transform:scaleX(-1)}
+.vf-message{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:1.5rem;color:var(--paper);font-size:.95rem;line-height:2;letter-spacing:.12em}
+.flash{position:absolute;inset:0;background:#fffaf0;opacity:0;pointer-events:none}
+.flash.go{animation:flash .9s var(--ease)}
+@keyframes flash{0%{opacity:.85}100%{opacity:0}}
+.capture-controls{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1.4rem;width:min(88vw,520px)}
+.capture-controls .left{justify-self:end}
+.capture-controls .right{justify-self:start}
+
+/* 作畫台 */
+#atelier{justify-content:flex-start;overflow-y:auto}
+.atelier{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:clamp(1.5rem,4vw,3.5rem);align-items:center;width:min(94vw,1060px);margin:auto 0}
+@media (max-width:760px){.atelier{grid-template-columns:1fr;gap:1.2rem;padding-top:2.6rem}}
+.preview{border:8px solid var(--wood);background:#1f1d19;justify-self:center;line-height:0;max-width:100%}
+.preview canvas{max-width:100%;max-height:56vh;width:auto;height:auto}
+@media (max-width:760px){.preview canvas{max-height:30vh}}
+fieldset{border:0;margin-bottom:1.3rem}
+legend{font-size:.85rem;letter-spacing:.4em;color:var(--ink-soft);margin-bottom:.7rem}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{display:inline-flex;align-items:center;gap:.5em;padding:.55em 1.05em;border:1px solid rgba(38,36,31,.3);border-radius:2px;font-size:.95rem;letter-spacing:.12em;cursor:pointer;background:rgba(238,233,222,.4);transition:background .5s,color .5s,border-color .5s}
+.chip input:checked+span{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip input:focus-visible+span{outline:2px solid var(--moss);outline-offset:3px}
+.swatch{width:18px;height:18px;border-radius:50%;background-size:cover;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.atelier-actions{display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;margin-top:.4rem}
+
+/* 浮現 */
+.easel{line-height:0;box-shadow:0 26px 50px -30px rgba(38,36,31,.7)}
+#revealCanvas{display:block;touch-action:none}
+#revealCanvas.smear{cursor:crosshair}
+
+/* 畫廊 */
+#gallery{padding:0;gap:0;justify-content:stretch;background-color:#5E4632;background-repeat:repeat-x;background-size:auto 100%}
+.wall{position:relative;flex:1;width:100%;min-height:0;background:radial-gradient(ellipse 120% 75% at 50% 32%,rgba(255,214,160,.12),rgba(0,0,0,.4) 78%)}
+.rail{position:absolute;top:8%;left:0;right:0;height:6px;background:linear-gradient(#3d2c1f,#2a1e15);box-shadow:0 2px 0 rgba(255,255,255,.06)}
+.floor{position:absolute;left:0;right:0;bottom:0;height:15%;background:linear-gradient(#2f2219,#45331f 40%,#2a1f16);box-shadow:0 -1px 0 rgba(255,230,190,.12)}
+.track{position:absolute;inset:0;display:flex;align-items:stretch;gap:clamp(2.5rem,7vw,6rem);padding:0 clamp(2rem,10vw,9rem);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;cursor:grab}
+.track::-webkit-scrollbar{display:none}
+.track.dragging{cursor:grabbing}
+.work{position:relative;flex:none;height:100%;display:flex;flex-direction:column;align-items:center}
+.work::before{content:"";position:absolute;inset:0 -40%;background:radial-gradient(ellipse 45% 36% at 50% 42%,rgba(255,224,170,.16),transparent 70%);pointer-events:none}
+.work .top{height:calc(8% + 6px);flex:none}
+.cord{flex:1;width:1px;min-height:14px;background:rgba(230,212,180,.45)}
+.frame{position:relative;padding:10px;background:linear-gradient(135deg,#d9c29c,#b69669 55%,#a2824f);box-shadow:0 18px 30px -18px rgba(0,0,0,.75)}
+.frame canvas{display:block;height:min(44vh,420px);width:auto;max-width:78vw}
+.plaque{margin-top:1rem;padding:.5rem .9rem;background:#d8c4a2;color:#3b3226;font-size:.74rem;letter-spacing:.12em;display:flex;flex-direction:column;align-items:center;gap:.3rem;border-radius:1px;box-shadow:0 2px 6px -3px rgba(0,0,0,.6)}
+.palette{display:flex;gap:4px}
+.palette i{width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.work .bottom{flex:1.7}
+.work.fresh .frame,.work.fresh .plaque,.work.fresh .cord{animation:hang 2.6s var(--ease) both}
+@keyframes hang{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+.work.fall .frame,.work.fall .plaque,.work.fall .cord{animation:fall 3.8s cubic-bezier(.45,.05,.55,.95) forwards}
+@keyframes fall{
+  0%{opacity:1;transform:none}
+  20%{transform:translate(-8px,14px) rotate(-5deg)}
+  55%{opacity:.7;transform:translate(24px,28vh) rotate(9deg)}
+  100%{opacity:0;transform:translate(52px,62vh) rotate(18deg)}}
+.empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--paper);letter-spacing:.3em;font-size:1rem;text-align:center;line-height:2;pointer-events:none}
+.gallery-bar{position:relative;z-index:3;width:100%;display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.9rem clamp(1rem,4vw,2.5rem) max(.9rem,env(safe-area-inset-bottom));background:#221912;color:var(--paper)}
+.gallery-bar .text-btn{border-color:rgba(238,233,222,.35)}
+.gallery-bar .primary-btn{background:var(--paper);color:var(--ink)}
+.count{font-size:.8rem;letter-spacing:.2em;opacity:.7}
+
+/* 聲音開關 */
+#soundBtn{position:fixed;z-index:20;top:max(.8rem,env(safe-area-inset-top));right:.8rem;width:44px;height:44px;display:grid;place-items:center;color:var(--ink);opacity:.75;transition:color 1s,opacity .4s}
+#soundBtn:hover{opacity:1}
+body[data-screen="gallery"] #soundBtn{color:var(--paper)}
+#soundBtn svg{width:22px;height:22px}
+#soundBtn .off{display:none}
+#soundBtn[aria-pressed="false"] .on{display:none}
+#soundBtn[aria-pressed="false"] .off{display:inline}
+
+.noscript{position:fixed;inset:0;display:grid;place-items:center;z-index:99;background:var(--sand);letter-spacing:.2em}
+
+@media (prefers-reduced-motion:reduce){
+  .dapple{animation:none}
+  #opening.active .title{animation-duration:1.2s}
+}
+</style>
+</head>
+<body data-screen="opening">
+<noscript><p class="noscript">這個作品需要開啟 JavaScript 才能使用。</p></noscript>
+
+<canvas id="bgCanvas" aria-hidden="true"></canvas>
+<div class="dapple" aria-hidden="true"></div>
+<div class="shade" aria-hidden="true"></div>
+
+<button id="soundBtn" aria-pressed="true" aria-label="環境音開關">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/>
+    <g class="on"><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18 6.8a7.5 7.5 0 0 1 0 10.4"/></g>
+    <g class="off"><path d="M16 9.5l5 5M21 9.5l-5 5"/></g>
+  </svg>
+</button>
+
+<!-- 1. 開場 -->
+<section id="opening" class="screen active" aria-label="開場">
+  <div class="opening-content">
+    <h1 class="title">Unnoticed by Time</h1>
+    <p class="subtitle">慢到，時間也沒有察覺</p>
+    <button class="enso" id="enterBtn" aria-label="打開相機">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <path class="s1" pathLength="1" d="M123.9 34.2 A70 70 0 1 1 87.8 31.1"/>
+        <path class="s2" pathLength="1" d="M138 45 A64 66 0 1 1 104 34"/>
+      </svg>
+    </button>
+    <p class="hint">輕觸圓相，打開相機</p>
+    <button class="text-btn" id="openGallery" hidden>走進畫廊</button>
+  </div>
+</section>
+
+<!-- 2. 取景 -->
+<section id="capture" class="screen" aria-label="取景">
+  <button class="corner-btn" data-go="opening">返回</button>
+  <div class="viewfinder" id="viewfinder">
+    <video id="video" playsinline muted></video>
+    <div class="vf-message" id="vfMessage" hidden></div>
+    <div class="flash" id="flash"></div>
+  </div>
+  <p class="hint">對準想留下的此刻</p>
+  <div class="capture-controls">
+    <button class="text-btn left" id="pickBtn">從相簿選一張</button>
+    <button class="enso small" id="shutterBtn" aria-label="拍照">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <path class="s1" pathLength="1" d="M123.9 34.2 A70 70 0 1 1 87.8 31.1"/>
+        <path class="s2" pathLength="1" d="M138 45 A64 66 0 1 1 104 34"/>
+      </svg>
+    </button>
+    <button class="text-btn right" id="flipBtn" hidden>切換鏡頭</button>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" hidden>
+</section>
+
+<!-- 3. 作畫台 -->
+<section id="atelier" class="screen" aria-label="作畫台">
+  <button class="corner-btn" data-go="capture">重新取景</button>
+  <div class="atelier">
+    <figure class="preview"><canvas id="previewCanvas" role="img" aria-label="剛拍下的照片"></canvas></figure>
+    <form class="choices" id="choices" onsubmit="return false">
+      <fieldset>
+        <legend>畫風</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="style" value="watercolor" checked><span>水彩</span></label>
+          <label class="chip"><input type="radio" name="style" value="collage"><span>碎紙拼接</span></label>
+          <label class="chip"><input type="radio" name="style" value="kintsugi"><span>碎瓷金繼</span></label>
+          <label class="chip"><input type="radio" name="style" value="wax"><span>融蠟流淌</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>材質</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="material" value="washi" checked><span><i class="swatch" data-mat="washi"></i>和紙</span></label>
+          <label class="chip"><input type="radio" name="material" value="stone"><span><i class="swatch" data-mat="stone"></i>石頭</span></label>
+          <label class="chip"><input type="radio" name="material" value="wood"><span><i class="swatch" data-mat="wood"></i>木板</span></label>
+          <label class="chip"><input type="radio" name="material" value="water"><span><i class="swatch" data-mat="water"></i>水面</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>浮現方式</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="mode" value="auto" checked><span>自動浮現</span></label>
+          <label class="chip"><input type="radio" name="mode" value="smear"><span>親手塗抹</span></label>
+        </div>
+      </fieldset>
+      <div class="atelier-actions">
+        <button class="primary-btn" id="paintBtn" type="button">開始作畫</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- 4. 浮現 -->
+<section id="reveal" class="screen" aria-label="浮現">
+  <div class="easel"><canvas id="revealCanvas" role="img" aria-label="正在浮現的畫作"></canvas></div>
+  <p class="hint" id="revealHint"></p>
+  <button class="primary-btn" id="toGalleryBtn" hidden>走進畫廊</button>
+</section>
+
+<!-- 5. 畫廊 -->
+<section id="gallery" class="screen" aria-label="畫廊">
+  <div class="wall">
+    <div class="rail" aria-hidden="true"></div>
+    <div class="floor" aria-hidden="true"></div>
+    <div class="track" id="track" tabindex="0" aria-label="作品長牆，可左右捲動"></div>
+    <p class="empty" id="emptyMsg" hidden>牆上還空著<br>拍下第一幅吧</p>
+  </div>
+  <div class="gallery-bar">
+    <button class="text-btn" data-go="opening">回到入口</button>
+    <span class="count" id="galleryCount"></span>
+    <button class="primary-btn" id="againBtn">再拍一張</button>
+  </div>
+</section>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- 基本設定 ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const STYLES = { watercolor: '水彩', collage: '碎紙拼接', kintsugi: '碎瓷金繼', wax: '融蠟流淌' };
+const MATERIALS = { washi: '和紙', stone: '石頭', wood: '木板', water: '水面' };
+const MAX_WORKS = 20;
+const REVEAL_MS = 10000;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const mix = (a, b, t) => a + (b - a) * t;
+const rand = (a, b) => a + Math.random() * (b - a);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+const vibrate = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
+
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function readCtx(c) { return c.getContext('2d', { willReadFrequently: true }); }
+
+/* ---------- 亂數與雜訊 ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function makeNoise(seed) {
+  const rnd = mulberry32(seed), P = 256, g = new Float32Array(P * P);
+  for (let i = 0; i < g.length; i++) g[i] = rnd();
+  const ss = t => t * t * (3 - 2 * t);
+  function n(x, y) {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const x0 = xi & 255, y0 = yi & 255, x1 = (x0 + 1) & 255, y1 = (y0 + 1) & 255;
+    const a = g[y0 * P + x0], b = g[y0 * P + x1], c = g[y1 * P + x0], d = g[y1 * P + x1];
+    const u = ss(xf), v = ss(yf);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  n.fbm = (x, y, oct = 4) => {
+    let acc = 0, amp = .5, f = 1, norm = 0;
+    for (let i = 0; i < oct; i++) { acc += amp * n(x * f + i * 17.3, y * f + i * 9.1); norm += amp; amp *= .5; f *= 2; }
+    return acc / norm;
+  };
+  return n;
+}
+
+/* ---------- 影像工具 ---------- */
+function blur(src, w, h, r) {
+  if (r < 1) return src.slice();
+  const tmp = new Float32Array(src.length), out = new Float32Array(src.length), inv = 1 / (2 * r + 1);
+  for (let y = 0; y < h; y++) {
+    const row = y * w; let acc = 0;
+    for (let k = -r; k <= r; k++) acc += src[row + clamp(k, 0, w - 1)];
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = acc * inv;
+      acc += src[row + Math.min(x + r + 1, w - 1)] - src[row + Math.max(x - r, 0)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let acc = 0;
+    for (let k = -r; k <= r; k++) acc += tmp[clamp(k, 0, h - 1) * w + x];
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = acc * inv;
+      acc += tmp[Math.min(y + r + 1, h - 1) * w + x] - tmp[Math.max(y - r, 0) * w + x];
+    }
+  }
+  return out;
+}
+function channels(px, n) {
+  const R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n);
+  for (let i = 0; i < n; i++) { R[i] = px[i * 4] / 255; G[i] = px[i * 4 + 1] / 255; B[i] = px[i * 4 + 2] / 255; }
+  return [R, G, B];
+}
+
+/* Voronoi（碎紙、碎瓷用） */
+let NI = 0, ND1 = 0, ND2 = 0;
+function voronoi(w, h, cell, rnd) {
+  const gw = Math.ceil(w / cell) + 2, gh = Math.ceil(h / cell) + 2, pts = [];
+  for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++)
+    pts.push({ x: (gx - 1 + rnd()) * cell, y: (gy - 1 + rnd()) * cell });
+  return { gw, gh, pts, cell };
+}
+function nearest2(V, x, y) {
+  const gx = Math.floor(x / V.cell) + 1, gy = Math.floor(y / V.cell) + 1;
+  let d1 = 1e9, d2 = 1e9, i1 = 0;
+  for (let j = gy - 1; j <= gy + 1; j++) {
+    if (j < 0 || j >= V.gh) continue;
+    for (let i = gx - 1; i <= gx + 1; i++) {
+      if (i < 0 || i >= V.gw) continue;
+      const k = j * V.gw + i, p = V.pts[k], d = Math.hypot(x - p.x, y - p.y);
+      if (d < d1) { d2 = d1; d1 = d; i1 = k; } else if (d < d2) d2 = d;
+    }
+  }
+  NI = i1; ND1 = d1; ND2 = d2;
+}
+
+/* ---------- 畫風 ---------- */
+function styleWatercolor(px, w, h, seed) {
+  const nz = makeNoise(seed), n = w * h, s = Math.max(w, h) / 800;
+  const R = new Float32Array(n), G = new Float32Array(n), B = new Float32Array(n);
+  const amp = 9 * s;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const ox = (nz.fbm(x * .012 / s, y * .012 / s, 2) - .5) * amp * 2;
+    const oy = (nz.fbm(x * .012 / s + 31, y * .012 / s + 17, 2) - .5) * amp * 2;
+    const sx = clamp(Math.round(x + ox), 0, w - 1), sy = clamp(Math.round(y + oy), 0, h - 1);
+    const j = (sy * w + sx) * 4, i = y * w + x;
+    R[i] = px[j] / 255; G[i] = px[j + 1] / 255; B[i] = px[j + 2] / 255;
+  }
+  const r1 = Math.max(2, Math.round(3 * s)), r2 = r1 * 4;
+  const bR = blur(R, w, h, r1), bG = blur(G, w, h, r1), bB = blur(B, w, h, r1);
+  const cR = blur(bR, w, h, r2), cG = blur(bG, w, h, r2), cB = blur(bB, w, h, r2);
+  const out = new Uint8ClampedArray(n * 4), edgeW = Math.max(w, h) * .035, q = 5;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, o = i * 4;
+    let r = bR[i], g = bG[i], b = bB[i];
+    r = mix(r, Math.round(r * q) / q, .45); g = mix(g, Math.round(g * q) / q, .45); b = mix(b, Math.round(b * q) / q, .45);
+    const L1 = .299 * bR[i] + .587 * bG[i] + .114 * bB[i];
+    const L2 = .299 * cR[i] + .587 * cG[i] + .114 * cB[i];
+    const e = Math.min(1, Math.abs(L1 - L2) * 3.2);
+    const dens = (.82 + e * .9) * (.93 + .14 * nz(x * .45, y * .45));
+    r = 1 - (1 - r) * dens; g = 1 - (1 - g) * dens; b = 1 - (1 - b) * dens;
+    const white = smooth(.8, .95, L1) * .85;
+    r = mix(r, 1, white); g = mix(g, 1, white); b = mix(b, 1, white);
+    const dEdge = Math.min(x, y, w - 1 - x, h - 1 - y);
+    const a = smooth(0, edgeW, dEdge + (nz.fbm(x * .02, y * .02, 3) - .5) * edgeW * 1.8);
+    out[o] = r * 255; out[o + 1] = g * 255; out[o + 2] = b * 255; out[o + 3] = a * 255;
+  }
+  return out;
+}
+
+function styleCollage(px, w, h, seed) {
+  const rnd = mulberry32(seed), nz = makeNoise(seed + 5), n = w * h;
+  const cell = Math.max(w, h) / 6, V = voronoi(w, h, cell, rnd);
+  for (const p of V.pts) {
+    const a = (rnd() - .5) * .09;
+    p.cs = Math.cos(a); p.sn = Math.sin(a);
+    p.ox = (rnd() - .5) * cell * .08; p.oy = (rnd() - .5) * cell * .08; p.b = .93 + rnd() * .12;
+  }
+  const gap = cell * .016, fib = cell * .022, jag = cell * .2;
+  const out = new Uint8ClampedArray(n * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = (y * w + x) * 4;
+    const qx = x + (nz.fbm(x * .018, y * .018, 3) - .5) * jag + (nz(x * .2, y * .2) - .5) * cell * .02;
+    const qy = y + (nz.fbm(x * .018 + 50, y * .018 + 50, 3) - .5) * jag + (nz(x * .2 + 7, y * .2 + 7) - .5) * cell * .02;
+    nearest2(V, qx, qy);
+    const p = V.pts[NI];
+    let edge = (ND2 - ND1) / 2;
+    const bEdge = Math.min(x, y, w - 1 - x, h - 1 - y) - cell * .03 + (nz.fbm(x * .05 + 9, y * .05 + 3, 3) - .5) * cell * .12;
+    edge = Math.min(edge, bEdge);
+    if (edge < gap) { out[o + 3] = 255 * .28 * clamp(edge / gap, 0, 1); continue; }
+    if (edge < gap + fib) {
+      const f = .94 + .08 * nz(x * .9, y * .9);
+      out[o] = 243 * f; out[o + 1] = 239 * f; out[o + 2] = 229 * f; out[o + 3] = 255; continue;
+    }
+    const dx = x - p.x, dy = y - p.y;
+    const sx = clamp(Math.round(p.x + dx * p.cs - dy * p.sn + p.ox), 0, w - 1);
+    const sy = clamp(Math.round(p.y + dx * p.sn + dy * p.cs + p.oy), 0, h - 1);
+    const j = (sy * w + sx) * 4;
+    let r = px[j] / 255, g = px[j + 1] / 255, b = px[j + 2] / 255;
+    const L = .299 * r + .587 * g + .114 * b;
+    r = mix(r, L, .12); g = mix(g, L, .12); b = mix(b, L, .12);
+    const k = p.b * (.95 + .07 * nz(x * .7, y * .7)) * (1 - .12 * (1 - smooth(gap + fib, gap + fib + cell * .08, edge)));
+    out[o] = r * k * 255; out[o + 1] = g * k * 255; out[o + 2] = b * k * 255; out[o + 3] = 255;
+  }
+  return out;
+}
+
+function styleKintsugi(px, w, h, seed) {
+  const rnd = mulberry32(seed), nz = makeNoise(seed + 7), n = w * h;
+  const cell = Math.max(w, h) / 5.2, V = voronoi(w, h, cell, rnd);
+  for (const p of V.pts) {
+    p.ox = (rnd() - .5) * cell * .024; p.oy = (rnd() - .5) * cell * .024;
+    p.hx = p.x - cell * .25; p.hy = p.y - cell * .3; p.t = .97 + rnd() * .06;
+  }
+  const seam = Math.max(1.3, Math.max(w, h) / 420);
+  const [R0, G0, B0] = channels(px, n);
+  const R = blur(R0, w, h, 1), G = blur(G0, w, h, 1), B = blur(B0, w, h, 1);
+  const out = new Uint8ClampedArray(n * 4);
+  const gold = (x, y, t, o) => {
+    const k = clamp(.25 + nz(x * .08, y * .08) * .9 - t * .3, 0, 1);
+    out[o] = mix(139, 238, k); out[o + 1] = mix(101, 209, k); out[o + 2] = mix(36, 128, k); out[o + 3] = 255;
+  };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = (y * w + x) * 4;
+    const bEdge = Math.min(x, y, w - 1 - x, h - 1 - y) - cell * .02 + (nz(x * .05, y * .05) - .5) * cell * .05;
+    if (bEdge < 0) { out[o + 3] = 0; continue; }
+    if (bEdge < seam * 1.2) { gold(x, y, bEdge / seam, o); continue; }
+    nearest2(V, x + (nz(x * .06, y * .06) - .5) * cell * .04, y + (nz(x * .06 + 20, y * .06 + 20) - .5) * cell * .04);
+    const p = V.pts[NI], edge = (ND2 - ND1) / 2;
+    if (edge < seam) { gold(x, y, edge / seam, o); continue; }
+    const sx = clamp(Math.round(x + p.ox), 0, w - 1), sy = clamp(Math.round(y + p.oy), 0, h - 1), j = sy * w + sx;
+    const dd = Math.hypot(x - p.hx, y - p.hy) / (cell * .85);
+    const spec = Math.pow(Math.max(0, 1 - dd), 3) * .16;
+    const bev = (1 - smooth(seam, seam * 4, edge)) * .08;
+    const f = c => clamp(((c - .5) * 1.06 + .5) * p.t + spec - bev, 0, 1) * 255;
+    out[o] = f(R[j]); out[o + 1] = f(G[j]); out[o + 2] = f(B[j]); out[o + 3] = 255;
+  }
+  return out;
+}
+
+function styleWax(px, w, h, seed) {
+  const nz = makeNoise(seed + 9), n = w * h, s = Math.max(w, h) / 800;
+  const [R, G, B] = channels(px, n);
+  const drip = new Float32Array(w), st = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    drip[x] = smooth(.48, .7, nz.fbm(x * .03 / s, 3.7, 3));
+    st[x] = h * (.05 + .6 * nz.fbm(x * .008 / s, 9.1, 2));
+  }
+  const oR = new Float32Array(n), oG = new Float32Array(n), oB = new Float32Array(n);
+  for (let x = 0; x < w; x++) {
+    let r = R[x], g = G[x], b = B[x];
+    const flow = mix(.92, .022, drip[x]);
+    for (let y = 0; y < h; y++) {
+      const i = y * w + x, k = y < st[x] ? 1 : flow;
+      r += (R[i] - r) * k; g += (G[i] - g) * k; b += (B[i] - b) * k;
+      oR[i] = r; oG[i] = g; oB[i] = b;
+    }
+  }
+  const br = Math.max(1, Math.round(2 * s));
+  const sR = blur(oR, w, h, br), sG = blur(oG, w, h, br), sB = blur(oB, w, h, br);
+  const Lh = new Float32Array(n);
+  for (let i = 0; i < n; i++) Lh[i] = .299 * sR[i] + .587 * sG[i] + .114 * sB[i];
+  const Hm = blur(Lh, w, h, Math.max(2, Math.round(4 * s)));
+  const out = new Uint8ClampedArray(n * 4), o2 = Math.max(1, Math.round(2 * s));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, o = i * 4;
+    const xa = Math.max(0, x - o2), xb = Math.min(w - 1, x + o2), ya = Math.max(0, y - o2), yb = Math.min(h - 1, y + o2);
+    const sh = clamp(.5 + (Hm[ya * w + xa] - Hm[yb * w + xb]) * 18, 0, 1);
+    const diff = .88 + (sh - .5) * .45, spec = Math.pow(clamp((sh - .6) / .4, 0, 1), 2) * .55;
+    out[o] = mix(sR[i] * diff + spec, .96, .08) * 255;
+    out[o + 1] = mix(sG[i] * diff + spec, .91, .08) * 255;
+    out[o + 2] = mix(sB[i] * diff + spec, .83, .08) * 255;
+    out[o + 3] = 255;
+  }
+  return out;
+}
+const STYLE_FN = { watercolor: styleWatercolor, collage: styleCollage, kintsugi: styleKintsugi, wax: styleWax };
+
+/* ---------- 材質 ---------- */
+function makeMaterial(type, W, H, seed) {
+  const c = makeCanvas(W, H), x2 = readCtx(c), img = x2.createImageData(W, H), d = img.data;
+  const nz = makeNoise(seed + 101), rnd = mulberry32(seed + 202), s = Math.max(W, H) / 900;
+  let Hs = null;
+  if (type === 'stone') {
+    Hs = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+      Hs[y * W + x] = .65 * nz.fbm(x * .006 / s, y * .006 / s, 5) + .35 * nz.fbm(x * .05 / s, y * .05 / s, 3);
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, o = i * 4;
+    let r, g, b;
+    if (type === 'washi') {
+      const L = 1 + (nz.fbm(x * .01 / s, y * .01 / s, 4) - .5) * .07 + (rnd() - .5) * .05 + (nz(x * .5, y * .5) - .5) * .04;
+      r = 238 * L; g = 233 * L; b = 221 * L;
+    } else if (type === 'stone') {
+      const hh = Hs[i];
+      const sh = (Hs[Math.max(0, i - W - 1)] - Hs[Math.min(W * H - 1, i + W + 1)]) * 9;
+      const vein = Math.abs(Math.sin((x * .004 / s + nz.fbm(x * .004 / s, y * .004 / s, 3) * 5) * 3.1));
+      const v = vein < .04 ? (1 - vein / .04) * 30 : 0;
+      const k = (1 + sh) * (1 + (rnd() - .5) * .08);
+      r = mix(92, 168, hh) * k + v; g = mix(90, 164, hh) * k + v; b = mix(86, 155, hh) * k + v;
+    } else if (type === 'wood') {
+      const gr = nz.fbm(x * .0025 / s, y * .02 / s, 3);
+      const ring = Math.sin(y * .05 / s + gr * 14 + nz.fbm(x * .001 / s, y * .001 / s, 2) * 10);
+      const t = Math.pow(ring * .5 + .5, 3) * .8;
+      const k = (1 + (nz(x * .02 / s, y * .6 / s) - .5) * .08) * (1 + (rnd() - .5) * .04);
+      r = mix(206, 164, t) * k; g = mix(172, 124, t) * k; b = mix(128, 82, t) * k;
+    } else {
+      const deep = smooth(0, 1, y / H) * .4 + nz.fbm(x * .004 / s, y * .004 / s, 3) * .6;
+      const cs = Math.pow(1 - Math.abs(Math.sin(nz.fbm(x * .012 / s, y * .02 / s, 3) * 18)), 8) * 28;
+      r = mix(70, 34, deep) + cs; g = mix(96, 50, deep) + cs; b = mix(94, 52, deep) + cs;
+    }
+    d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+  }
+  x2.putImageData(img, 0, 0);
+  if (type === 'washi') {
+    const count = Math.round(W * H / 1400);
+    x2.lineCap = 'round';
+    for (let k = 0; k < count; k++) {
+      const x0 = rnd() * W, y0 = rnd() * H, len = (8 + rnd() * 42) * s, a = rnd() * Math.PI * 2;
+      x2.strokeStyle = rnd() < .6 ? 'rgba(255,253,246,.5)' : 'rgba(140,128,104,.14)';
+      x2.lineWidth = (.3 + rnd() * .9) * s;
+      x2.beginPath(); x2.moveTo(x0, y0);
+      x2.quadraticCurveTo(x0 + Math.cos(a + .6) * len * .5, y0 + Math.sin(a + .6) * len * .5, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len);
+      x2.stroke();
+    }
+  }
+  return c;
+}
+
+/* ---------- 合成：畫風 × 材質 ---------- */
+function compose(style, material, photo, seed) {
+  const longArt = innerWidth < 700 ? 640 : 820;
+  const k = longArt / Math.max(photo.width, photo.height);
+  const aw = Math.round(photo.width * k), ah = Math.round(photo.height * k);
+  const m = Math.round(Math.max(aw, ah) * .07), W = aw + 2 * m, H = ah + 2 * m;
+  const ac = makeCanvas(aw, ah), actx = readCtx(ac);
+  actx.drawImage(photo, 0, 0, aw, ah);
+  const art = STYLE_FN[style](actx.getImageData(0, 0, aw, ah).data, aw, ah, seed);
+  const mat = makeMaterial(material, W, H, seed);
+  const final = makeCanvas(W, H), fctx = readCtx(final);
+  fctx.drawImage(mat, 0, 0);
+  const fi = fctx.getImageData(0, 0, W, H), fd = fi.data;
+  let sum = 0, cnt = 0;
+  for (let i = 0; i < fd.length; i += 16) { sum += fd[i] * .299 + fd[i + 1] * .587 + fd[i + 2] * .114; cnt++; }
+  const avg = sum / cnt, transparent = style === 'watercolor', water = material === 'water';
+  for (let y = 0; y < ah; y++) for (let x = 0; x < aw; x++) {
+    const o = (y * aw + x) * 4, a = art[o + 3] / 255;
+    if (a <= 0) continue;
+    const f = ((y + m) * W + x + m) * 4;
+    const Mr = fd[f], Mg = fd[f + 1], Mb = fd[f + 2];
+    let r, g, b;
+    if (transparent) {
+      if (water) { r = mix(Mr, art[o], .82); g = mix(Mg, art[o + 1], .82); b = mix(Mb, art[o + 2], .82); }
+      else { r = Mr * art[o] / 255 * 1.04; g = Mg * art[o + 1] / 255 * 1.04; b = Mb * art[o + 2] / 255 * 1.04; }
+    } else {
+      const tk = water ? .08 : .2, tf = 1 - tk + tk * (Mr * .299 + Mg * .587 + Mb * .114) / avg;
+      r = art[o] * tf; g = art[o + 1] * tf; b = art[o + 2] * tf;
+    }
+    fd[f] = mix(Mr, r, a); fd[f + 1] = mix(Mg, g, a); fd[f + 2] = mix(Mb, b, a);
+  }
+  fctx.putImageData(fi, 0, 0);
+  return { final, mat, W, H, water };
+}
+
+/* 水面波紋 */
+function drawRipple(ctx, src, t, amp) {
+  const W = src.width, H = src.height, band = 3;
+  ctx.drawImage(src, 0, 0);
+  for (let y = 0; y < H; y += band) {
+    const off = Math.sin(y * .045 + t * 1.1) * amp + Math.sin(y * .11 - t * .75) * amp * .45;
+    ctx.drawImage(src, 0, y, W, band, off, y, W, band);
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 5; i++) {
+    const yy = ((i * .21 + t * .012) % 1) * H;
+    const g = ctx.createLinearGradient(0, yy - 14, 0, yy + 14);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(220,235,235,.06)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, yy - 14, W, 28);
+  }
+  ctx.restore();
+}
+
+/* 調色盤：顏色分群取 5 色 */
+function extractPalette(src) {
+  const S = 40, c = makeCanvas(S, S), x = readCtx(c);
+  x.drawImage(src, 0, 0, S, S);
+  const d = x.getImageData(0, 0, S, S).data, pts = [];
+  for (let i = 0; i < d.length; i += 4) pts.push([d[i], d[i + 1], d[i + 2]]);
+  const lum = p => p[0] * .299 + p[1] * .587 + p[2] * .114;
+  const sorted = pts.slice().sort((a, b) => lum(a) - lum(b)), K = 5;
+  let cs = [];
+  for (let i = 0; i < K; i++) cs.push(sorted[Math.floor((i + .5) / K * sorted.length)].slice());
+  for (let it = 0; it < 10; it++) {
+    const acc = cs.map(() => [0, 0, 0, 0]);
+    for (const p of pts) {
+      let bi = 0, bd = 1e9;
+      cs.forEach((c2, ci) => { const dd = (p[0] - c2[0]) ** 2 + (p[1] - c2[1]) ** 2 + (p[2] - c2[2]) ** 2; if (dd < bd) { bd = dd; bi = ci; } });
+      const a = acc[bi]; a[0] += p[0]; a[1] += p[1]; a[2] += p[2]; a[3]++;
+    }
+    cs = cs.map((c2, ci) => acc[ci][3] ? [acc[ci][0] / acc[ci][3], acc[ci][1] / acc[ci][3], acc[ci][2] / acc[ci][3]] : c2);
+  }
+  return cs.sort((a, b) => lum(a) - lum(b)).map(c2 => '#' + c2.map(v => Math.round(v).toString(16).padStart(2, '0')).join(''));
+}
+
+/* ---------- 背景：沙庭（之後換成真實照片） ---------- */
+function drawSand() {
+  const c = $('#bgCanvas'), w = innerWidth, h = innerHeight;
+  const k = Math.min(1.5, Math.sqrt(1.1e6 / (w * h)));
+  const W = Math.max(2, Math.round(w * k)), H = Math.max(2, Math.round(h * k));
+  c.width = W; c.height = H;
+  const x2 = readCtx(c), img = x2.createImageData(W, H), d = img.data;
+  const nz = makeNoise(42), rnd = mulberry32(9), u = Math.min(W, H);
+  const sx = W * (W > H ? .74 : .68), sy = H * (W > H ? .7 : .78), sr = u * .075, sp = Math.max(6, u * .016), ringZ = sr * 3.4;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = (y * W + x) * 4, dx = (x - sx) / 1.45, dy = y - sy, dist = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx);
+    const rr = sr * (1 + .24 * (nz.fbm(Math.cos(ang) * 1.5 + 5, Math.sin(ang) * 1.5 + 5, 2) - .5));
+    const warp = (nz.fbm(x * .003, y * .003, 2) - .5) * sp * 2.2;
+    const v = mix(Math.sin(dist / sp * Math.PI * 2), Math.sin((y + warp) / sp * Math.PI * 2), smooth(ringZ * .9, ringZ * 1.1, dist));
+    let L = 1 + v * .05 + (rnd() - .5) * .09 + (nz(x * .7, y * .7) - .5) * .05;
+    let r = 216 * L, g = 209 * L, b = 194 * L;
+    if (dist < rr) {
+      const lt = clamp(.5 - (dx + dy) / (rr * 2.4), 0, 1), tex = nz.fbm(x * .04, y * .04, 3);
+      const kk = (.7 + .6 * lt) * (.85 + .3 * tex);
+      r = 96 * kk; g = 94 * kk; b = 88 * kk;
+    } else if (dist < rr * 1.13) {
+      const mm = (1 - smooth(rr, rr * 1.13, dist)) * (.6 + .4 * nz(x * .2, y * .2)), mk = .8 + .4 * nz(x * .5, y * .5);
+      r = mix(r, 98 * mk, mm); g = mix(g, 106 * mk, mm); b = mix(b, 72 * mk, mm);
+    } else if (Math.hypot((x - sx - sr * .3) / 1.45, y - sy - sr * .25) < rr * 1.2) {
+      r *= .87; g *= .87; b *= .87;
+    }
+    d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+  }
+  x2.putImageData(img, 0, 0);
+}
+
+/* 畫廊木牆紋理 */
+function makeWall() {
+  const W = 512, H = 512, c = makeCanvas(W, H), x2 = readCtx(c), img = x2.createImageData(W, H), d = img.data;
+  const nz = makeNoise(77), plank = 128, tones = [1, .93, 1.05, .97];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = (y * W + x) * 4, px = x % plank;
+    const seam = px < 2 ? .5 : px < 4 ? .8 : 1;
+    const k = (.82 + nz.fbm(x * .25, y * .008, 3) * .3 + (nz(x * .9, y * .02) - .5) * .12) * seam * tones[Math.floor(x / plank)];
+    d[o] = 116 * k; d[o + 1] = 86 * k; d[o + 2] = 60 * k; d[o + 3] = 255;
+  }
+  x2.putImageData(img, 0, 0);
+  return c.toDataURL('image/jpeg', .85);
+}
+
+/* ---------- 聲音（全部即時合成） ---------- */
+const Sound = {
+  ctx: null, master: null, wet: null, on: true,
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = this.ctx = new AC();
+    this.master = ctx.createGain(); this.master.gain.value = this.on ? .9 : 0;
+    const comp = ctx.createDynamicsCompressor();
+    this.master.connect(comp); comp.connect(ctx.destination);
+    const conv = ctx.createConvolver(); conv.buffer = this.impulse(3.2);
+    this.wet = ctx.createGain(); this.wet.gain.value = .5;
+    this.wet.connect(conv); conv.connect(this.master);
+    this.water(); this.chimeLoop(); this.panLoop();
+  },
+  noise(sec) {
+    const ctx = this.ctx, len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  },
+  impulse(sec) {
+    const ctx = this.ctx, len = Math.floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    return b;
+  },
+  water() {
+    const ctx = this.ctx, src = ctx.createBufferSource();
+    src.buffer = this.noise(5); src.loop = true;
+    const bus = ctx.createGain(); bus.gain.value = 0; bus.gain.setTargetAtTime(.55, ctx.currentTime, 2.5);
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90;
+    bus.connect(hp); hp.connect(this.master);
+    const send = ctx.createGain(); send.gain.value = .25; hp.connect(send); send.connect(this.wet);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+    const lg = ctx.createGain(); lg.gain.value = .35;
+    src.connect(lp); lp.connect(lg); lg.connect(bus);
+    for (let i = 0; i < 4; i++) {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = rand(5, 12); bp.frequency.value = rand(500, 1400);
+      const g = ctx.createGain(); g.gain.value = .3;
+      src.connect(bp); bp.connect(g); g.connect(bus);
+      const step = () => {
+        const now = ctx.currentTime;
+        bp.frequency.setTargetAtTime(rand(380, 1700), now, rand(.02, .06));
+        g.gain.setTargetAtTime(rand(.1, .6), now, .05);
+        setTimeout(step, rand(50, 160));
+      };
+      step();
+    }
+    src.start();
+  },
+  route(node, dry, wet) {
+    const g1 = this.ctx.createGain(); g1.gain.value = dry; node.connect(g1); g1.connect(this.master);
+    const g2 = this.ctx.createGain(); g2.gain.value = wet; node.connect(g2); g2.connect(this.wet);
+  },
+  chime(t, f, v) {
+    const ctx = this.ctx, out = ctx.createGain();
+    let tail = out;
+    if (ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = rand(-.6, .6); out.connect(p); tail = p; }
+    for (const [ratio, amp, dec] of [[1, 1, 4.5], [2.756, .45, 2.6], [5.404, .22, 1.6], [8.933, .1, 1]]) {
+      if (f * ratio > ctx.sampleRate * .45) continue;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f * ratio;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * amp, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + dec);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + .05);
+    }
+    this.route(tail, .8, .7);
+  },
+  chimeLoop() {
+    const notes = [1567.98, 1760, 2093, 2349.32, 2637.02];
+    const loop = () => {
+      const now = this.ctx.currentTime + .05, n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) this.chime(now + i * rand(.18, .6), notes[Math.floor(Math.random() * notes.length)], rand(.012, .028));
+      setTimeout(loop, rand(8000, 16000));
+    };
+    setTimeout(loop, 2500);
+  },
+  pan(t, f, v) {
+    const ctx = this.ctx, out = ctx.createGain(), lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2600; out.connect(lp);
+    for (const [ratio, amp, dec] of [[1, 1, 5], [2.002, .42, 3.2], [3.004, .16, 2]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f * ratio;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * amp, t + .015); g.gain.exponentialRampToValueAtTime(.0001, t + dec);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + .05);
+    }
+    this.route(lp, .9, .6);
+  },
+  panLoop() {
+    const scale = [146.83, 220, 233.08, 261.63, 293.66, 329.63, 349.23, 440, 523.25];
+    const pick = () => scale[Math.floor(Math.random() * scale.length)];
+    const loop = () => {
+      const now = this.ctx.currentTime + .05;
+      this.pan(now, pick(), rand(.05, .09));
+      if (Math.random() < .35) this.pan(now + rand(.4, .9), pick(), rand(.03, .06));
+      setTimeout(loop, rand(4500, 10000));
+    };
+    setTimeout(loop, 4000);
+  },
+  shutter() {
+    this.init();
+    const ctx = this.ctx; if (!ctx) return;
+    const t = ctx.currentTime + .01;
+    [[0, 3800, .035], [.085, 2600, .06]].forEach(([dt, f, dec]) => {
+      const s = ctx.createBufferSource(); s.buffer = this.noise(.1);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 1.2;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t + dt); g.gain.linearRampToValueAtTime(.6, t + dt + .002); g.gain.exponentialRampToValueAtTime(.001, t + dt + dec);
+      s.connect(bp); bp.connect(g); g.connect(this.master); s.start(t + dt); s.stop(t + dt + .1);
+    });
+  },
+  complete() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + .05;
+    [2093, 2637.02, 3135.96].forEach((f, i) => this.chime(t + i * .22, f, .022));
+  },
+  setOn(v) {
+    this.on = v;
+    $('#soundBtn').setAttribute('aria-pressed', String(v));
+    if (this.master) this.master.gain.setTargetAtTime(v ? .9 : 0, this.ctx.currentTime, .3);
+  }
+};
+document.addEventListener('visibilitychange', () => {
+  if (!Sound.ctx) return;
+  if (document.hidden) Sound.ctx.suspend(); else Sound.ctx.resume();
+});
+
+/* ---------- 儲存：IndexedDB（失敗時退回記憶體） ---------- */
+const store = {
+  db: null, mem: [],
+  open() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('unnoticed-by-time', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('works', { keyPath: 'id' });
+        r.onsuccess = () => { this.db = r.result; res(); };
+        r.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  },
+  req(mode, fn) {
+    return new Promise((res, rej) => {
+      const q = fn(this.db.transaction('works', mode).objectStore('works'));
+      q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+    });
+  },
+  all() { return this.db ? this.req('readonly', s => s.getAll()) : Promise.resolve(this.mem.slice()); },
+  put(w) { if (!this.db) { this.mem.push(w); return Promise.resolve(); } return this.req('readwrite', s => s.put(w)); },
+  del(id) { if (!this.db) { this.mem = this.mem.filter(w => w.id !== id); return Promise.resolve(); } return this.req('readwrite', s => s.delete(id)); }
+};
+
+/* ---------- 畫面切換 ---------- */
+let current = 'opening';
+function go(id) {
+  if (id === current) return;
+  const prev = current;
+  $('#' + prev).classList.remove('active');
+  $('#' + id).classList.add('active');
+  document.body.dataset.screen = id;
+  current = id;
+  if (prev === 'capture') stopCamera();
+  if (prev === 'reveal') stopReveal();
+  if (prev === 'gallery') stopGallery();
+  if (id === 'capture') startCamera();
+  if (id === 'gallery') renderGallery();
+  if (id === 'opening') updateOpeningLink();
+}
+$$('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+
+/* ---------- 取景 ---------- */
+const video = $('#video');
+let stream = null, facing = 'environment', photo = null;
+
+function camMessage(text) { const m = $('#vfMessage'); m.innerHTML = text; m.hidden = !text; }
+async function startCamera() {
+  camMessage('');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    camMessage('這個瀏覽器無法開啟相機<br>可以改從相簿選一張照片'); return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    if (current !== 'capture') { stopCamera(); return; }
+    video.srcObject = stream;
+    await video.play();
+    video.classList.toggle('mirror', facing === 'user');
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    $('#flipBtn').hidden = devs.filter(d => d.kind === 'videoinput').length < 2;
+  } catch (e) {
+    camMessage('相機無法開啟<br>可以改從相簿選一張照片，一樣能繼續');
+  }
+}
+function stopCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; video.srcObject = null;
+}
+function captureFrame() {
+  const vw = video.videoWidth, vh = video.videoHeight, box = $('#viewfinder').getBoundingClientRect();
+  const A = box.width / box.height;
+  let sw = vw, sh = vh;
+  if (vw / vh > A) sw = vh * A; else sh = vw / A;
+  const k = Math.min(1, 1000 / Math.max(sw, sh));
+  const c = makeCanvas(Math.round(sw * k), Math.round(sh * k)), x2 = c.getContext('2d');
+  if (facing === 'user') { x2.translate(c.width, 0); x2.scale(-1, 1); }
+  x2.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, c.width, c.height);
+  return c;
+}
+$('#shutterBtn').addEventListener('click', () => {
+  if (!stream || video.readyState < 2) { $('#fileInput').click(); return; }
+  Sound.shutter(); vibrate(25);
+  const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+  setPhoto(captureFrame());
+  setTimeout(() => go('atelier'), 500);
+});
+$('#pickBtn').addEventListener('click', () => $('#fileInput').click());
+$('#flipBtn').addEventListener('click', () => { facing = facing === 'user' ? 'environment' : 'user'; stopCamera(); startCamera(); });
+$('#fileInput').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    let src;
+    if (window.createImageBitmap) src = await createImageBitmap(file);
+    else src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); });
+    const k = Math.min(1, 1000 / Math.max(src.width, src.height));
+    const c = makeCanvas(Math.round(src.width * k), Math.round(src.height * k));
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    setPhoto(c);
+    go('atelier');
+  } catch (err) {
+    camMessage('這張照片無法讀取<br>請換一張試試');
+  }
+});
+function setPhoto(c) {
+  photo = c;
+  const p = $('#previewCanvas');
+  p.width = c.width; p.height = c.height;
+  p.getContext('2d').drawImage(c, 0, 0);
+}
+
+/* ---------- 浮現 ---------- */
+let reveal = null, current_meta = null;
+function fitCanvas(cv, W, H) {
+  const k = Math.min(Math.min(innerWidth * .92, 980) / W, innerHeight * .66 / H);
+  cv.style.width = Math.round(W * k) + 'px'; cv.style.height = Math.round(H * k) + 'px';
+}
+const easeInOut = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+
+$('#paintBtn').addEventListener('click', async () => {
+  if (!photo) return;
+  const fd = new FormData($('#choices'));
+  const style = fd.get('style'), material = fd.get('material'), mode = fd.get('mode');
+  go('reveal');
+  $('#revealHint').textContent = '研墨中';
+  $('#toGalleryBtn').hidden = true;
+  const cv = $('#revealCanvas');
+  cv.style.visibility = 'hidden';
+  await wait(650); await nextFrame();
+  const seed = (Date.now() & 0xffff) + 1;
+  const result = compose(style, material, photo, seed);
+  current_meta = { style, material, palette: extractPalette(photo) };
+  cv.style.visibility = '';
+  startReveal(result, mode);
+});
+
+function startReveal(res, mode) {
+  const cv = $('#revealCanvas'), { W, H } = res;
+  cv.width = W; cv.height = H; fitCanvas(cv, W, H);
+  cv.classList.toggle('smear', mode === 'smear');
+  const mw = Math.ceil(W / 6), mh = Math.ceil(H / 6), mask = makeCanvas(mw, mh);
+  const nz = makeNoise((Date.now() & 0xfff) + 3), order = new Float32Array(mw * mh);
+  let lo = 1e9, hi = -1e9;
+  for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
+    const dc = Math.hypot((x - mw / 2) / mw, (y - mh / 2) / mh) * 1.4;
+    const v = .55 * nz.fbm(x * .08, y * .08, 3) + .45 * dc;
+    order[y * mw + x] = v; lo = Math.min(lo, v); hi = Math.max(hi, v);
+  }
+  for (let i = 0; i < order.length; i++) order[i] = (order[i] - lo) / (hi - lo);
+  reveal = {
+    res, mode, ctx: cv.getContext('2d'), mask, mctx: readCtx(mask), mw, mh, order,
+    maskImg: null, layer: makeCanvas(W, H), frame: res.water ? makeCanvas(W, H) : null,
+    start: performance.now(), done: false, finishing: 0, dabs: 0, raf: 0, last: null,
+    amp: W * (REDUCED ? .002 : .004)
+  };
+  reveal.maskImg = reveal.mctx.createImageData(mw, mh);
+  $('#revealHint').textContent = mode === 'smear' ? '用手指或滑鼠，輕輕把畫刷出來' : '';
+  reveal.raf = requestAnimationFrame(revealLoop);
+}
+
+function paintAutoMask(st, p) {
+  const T = p * 1.3 - .15, d = st.maskImg.data;
+  for (let i = 0; i < st.order.length; i++) {
+    const a = clamp((T - st.order[i]) / .15, 0, 1);
+    d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = a * 255;
+  }
+  st.mctx.putImageData(st.maskImg, 0, 0);
+}
+function drawRevealFrame(st, t) {
+  const { W, H, final, mat } = st.res;
+  const target = st.frame ? st.frame.getContext('2d') : st.ctx;
+  target.drawImage(mat, 0, 0);
+  const l = st.layer.getContext('2d');
+  l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, W, H); l.drawImage(final, 0, 0);
+  l.globalCompositeOperation = 'destination-in'; l.drawImage(st.mask, 0, 0, W, H);
+  l.globalCompositeOperation = 'source-over';
+  target.drawImage(st.layer, 0, 0);
+  if (st.frame) drawRipple(st.ctx, st.frame, t, st.amp);
+}
+function revealLoop(now) {
+  const st = reveal; if (!st) return;
+  if (!st.done) {
+    if (st.mode === 'auto') {
+      const lin = clamp((now - st.start) / REVEAL_MS, 0, 1);
+      paintAutoMask(st, easeInOut(lin));
+      if (lin >= 1) finishReveal(st);
+    } else if (st.finishing) {
+      const k = clamp((now - st.finishing) / 1200, 0, 1);
+      st.mctx.globalAlpha = .08 + k * .3; st.mctx.fillStyle = '#fff'; st.mctx.fillRect(0, 0, st.mw, st.mh); st.mctx.globalAlpha = 1;
+      if (k >= 1) finishReveal(st);
+    }
+  }
+  drawRevealFrame(st, now / 1000);
+  if (st.done && !st.res.water) return;
+  st.raf = requestAnimationFrame(revealLoop);
+}
+function finishReveal(st) {
+  st.done = true;
+  st.mctx.globalAlpha = 1; st.mctx.fillStyle = '#fff'; st.mctx.fillRect(0, 0, st.mw, st.mh);
+  vibrate([18, 60, 18]);
+  Sound.complete();
+  $('#revealCanvas').classList.remove('smear');
+  saveWork(st.res).then(() => {
+    $('#revealHint').textContent = '完成了，這幅畫已收進畫廊';
+    $('#toGalleryBtn').hidden = false;
+  });
+}
+function stopReveal() { if (reveal) cancelAnimationFrame(reveal.raf); reveal = null; }
+
+/* 塗抹 */
+const rcv = $('#revealCanvas');
+function dab(st, mx, my) {
+  const r = st.mw * .075, c = st.mctx;
+  const g = c.createRadialGradient(mx, my, 0, mx, my, r);
+  g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.55, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.beginPath(); c.arc(mx, my, r, 0, Math.PI * 2); c.fill();
+  for (let k = 0; k < 2; k++) {
+    const a = Math.random() * Math.PI * 2, rr = r * rand(.3, .7), x = mx + Math.cos(a) * rr, y = my + Math.sin(a) * rr, r2 = r * .45;
+    const g2 = c.createRadialGradient(x, y, 0, x, y, r2);
+    g2.addColorStop(0, 'rgba(255,255,255,.5)'); g2.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = g2; c.beginPath(); c.arc(x, y, r2, 0, Math.PI * 2); c.fill();
+  }
+  if (++st.dabs % 12 === 0) {
+    const d = c.getImageData(0, 0, st.mw, st.mh).data;
+    let on = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 180) on++;
+    if (on / (st.mw * st.mh) >= .9 && !st.finishing) st.finishing = performance.now();
+  }
+}
+function smearPoint(e) {
+  const st = reveal; if (!st || st.mode !== 'smear' || st.done) return;
+  const b = rcv.getBoundingClientRect();
+  const mx = (e.clientX - b.left) / b.width * st.mw, my = (e.clientY - b.top) / b.height * st.mh;
+  if (st.last) {
+    const dx = mx - st.last[0], dy = my - st.last[1], dist = Math.hypot(dx, dy), step = st.mw * .025;
+    for (let s = step; s < dist; s += step) dab(st, st.last[0] + dx * s / dist, st.last[1] + dy * s / dist);
+  }
+  dab(st, mx, my);
+  st.last = [mx, my];
+}
+rcv.addEventListener('pointerdown', e => { if (!reveal || reveal.mode !== 'smear') return; rcv.setPointerCapture(e.pointerId); reveal.last = null; smearPoint(e); });
+rcv.addEventListener('pointermove', e => { if (reveal && reveal.last) smearPoint(e); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => rcv.addEventListener(t, () => { if (reveal) reveal.last = null; }));
+$('#toGalleryBtn').addEventListener('click', () => go('gallery'));
+
+/* ---------- 保存作品 ---------- */
+let lastSavedId = null, pendingFalls = [];
+async function saveWork(res) {
+  const blob = await new Promise(r => res.final.toBlob(r, 'image/jpeg', .9));
+  const data = await blob.arrayBuffer();
+  const work = { id: Date.now(), style: current_meta.style, material: current_meta.material, palette: current_meta.palette, data };
+  try {
+    await store.put(work);
+    lastSavedId = work.id;
+    const all = await store.all();
+    if (all.length > MAX_WORKS) {
+      all.sort((a, b) => a.id - b.id);
+      const extra = all.slice(0, all.length - MAX_WORKS);
+      for (const w of extra) await store.del(w.id);
+      pendingFalls.push(...extra);
+    }
+  } catch (e) { console.warn('save failed', e); }
+}
+
+/* ---------- 畫廊 ---------- */
+const track = $('#track');
+let galleryRaf = 0, waterItems = [];
+const io = new IntersectionObserver(entries => {
+  for (const en of entries) {
+    const it = waterItems.find(w => w.el === en.target);
+    if (it) it.visible = en.isIntersecting;
+    if (en.target.classList.contains('leaving') && en.intersectionRatio > .5) dropWork(en.target);
+  }
+}, { root: track, threshold: [0, .5, .6] });
+
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+async function loadBitmap(blob) {
+  if (window.createImageBitmap) return createImageBitmap(blob);
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(blob); });
+}
+async function makeWorkEl(w) {
+  const el = document.createElement('figure');
+  el.className = 'work';
+  el.innerHTML = '<div class="top"></div><div class="cord"></div><div class="frame"><canvas role="img"></canvas></div>' +
+    '<figcaption class="plaque"><time></time><span class="meta"></span><span class="palette"></span></figcaption><div class="bottom"></div>';
+  const bmp = await loadBitmap(new Blob([w.data], { type: 'image/jpeg' }));
+  const cv = $('canvas', el), k = Math.min(1, 640 / Math.max(bmp.width, bmp.height));
+  cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+  const c = cv.getContext('2d'); c.drawImage(bmp, 0, 0, cv.width, cv.height);
+  cv.setAttribute('aria-label', `${STYLES[w.style]}，畫在${MATERIALS[w.material]}上`);
+  $('time', el).textContent = fmtDate(w.id);
+  $('.meta', el).textContent = `${STYLES[w.style]}／${MATERIALS[w.material]}`;
+  $('.palette', el).innerHTML = (w.palette || []).map(h => `<i style="background:${h}" title="${h}"></i>`).join('');
+  if (w.material === 'water') {
+    const src = makeCanvas(cv.width, cv.height); src.getContext('2d').drawImage(cv, 0, 0);
+    waterItems.push({ el, ctx: c, src, amp: cv.width * (REDUCED ? .002 : .004), visible: false });
+  }
+  return el;
+}
+async function renderGallery() {
+  stopGallery();
+  track.innerHTML = '';
+  let works = [];
+  try { works = await store.all(); } catch (e) {}
+  works.sort((a, b) => b.id - a.id);
+  $('#emptyMsg').hidden = works.length > 0 || pendingFalls.length > 0;
+  $('#galleryCount').textContent = `${works.length}／${MAX_WORKS} 幅`;
+  for (const w of works) {
+    const el = await makeWorkEl(w);
+    if (w.id === lastSavedId) el.classList.add('fresh');
+    track.appendChild(el); io.observe(el);
+  }
+  for (const w of pendingFalls) {
+    const el = await makeWorkEl(w);
+    el.classList.add('leaving'); el.dataset.id = w.id;
+    track.appendChild(el); io.observe(el);
+  }
+  lastSavedId = null;
+  track.scrollLeft = 0;
+  galleryRaf = requestAnimationFrame(galleryTick);
+}
+function galleryTick(now) {
+  const t = now / 1000;
+  for (const it of waterItems) if (it.visible) drawRipple(it.ctx, it.src, t, it.amp);
+  galleryRaf = requestAnimationFrame(galleryTick);
+}
+function dropWork(el) {
+  el.classList.remove('leaving'); el.classList.add('fall');
+  const id = Number(el.dataset.id);
+  setTimeout(() => {
+    io.unobserve(el); el.remove();
+    pendingFalls = pendingFalls.filter(w => w.id !== id);
+    waterItems = waterItems.filter(w => w.el !== el);
+  }, 3900);
+}
+function stopGallery() {
+  cancelAnimationFrame(galleryRaf);
+  waterItems = [];
+  io.disconnect();
+}
+track.addEventListener('wheel', e => {
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { track.scrollLeft += e.deltaY; e.preventDefault(); }
+}, { passive: false });
+let drag = null;
+track.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'mouse') return;
+  drag = { x: e.clientX, s: track.scrollLeft }; track.classList.add('dragging'); track.setPointerCapture(e.pointerId);
+});
+track.addEventListener('pointermove', e => { if (drag) track.scrollLeft = drag.s - (e.clientX - drag.x); });
+['pointerup', 'pointercancel'].forEach(t => track.addEventListener(t, () => { drag = null; track.classList.remove('dragging'); }));
+track.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') track.scrollBy({ left: 320, behavior: 'smooth' });
+  if (e.key === 'ArrowLeft') track.scrollBy({ left: -320, behavior: 'smooth' });
+});
+$('#againBtn').addEventListener('click', () => go('capture'));
+
+/* ---------- 開場 ---------- */
+async function updateOpeningLink() {
+  let n = 0;
+  try { n = (await store.all()).length; } catch (e) {}
+  const b = $('#openGallery');
+  b.hidden = n === 0;
+  b.textContent = `走進畫廊（${n}）`;
+}
+$('#openGallery').addEventListener('click', () => { Sound.init(); go('gallery'); });
+$('#enterBtn').addEventListener('click', () => { Sound.init(); go('capture'); });
+$('#soundBtn').addEventListener('click', () => { Sound.setOn(!Sound.on); Sound.init(); });
+document.addEventListener('pointerdown', () => Sound.init(), { once: true });
+
+/* ---------- 啟動 ---------- */
+let resizeTimer = 0, lastSize = innerWidth + 'x' + innerHeight;
+addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const s = innerWidth + 'x' + innerHeight;
+    if (s !== lastSize) { lastSize = s; drawSand(); }
+    if (reveal) fitCanvas($('#revealCanvas'), reveal.res.W, reveal.res.H);
+  }, 250);
+});
+(async function init() {
+  drawSand();
+  $('#gallery').style.backgroundImage = `url(${makeWall()})`;
+  $$('.swatch').forEach(s => { s.style.backgroundImage = `url(${makeMaterial(s.dataset.mat, 72, 72, 3).toDataURL()})`; });
+  await store.open();
+  updateOpeningLink();
+})();
+})();
+</script>
+</body>
+</html>
